@@ -1,2 +1,0 @@
-# TinhToan
-Tính toán chung
