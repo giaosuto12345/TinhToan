@@ -419,15 +419,30 @@
             const applySuggestion = () => {
                 if (!smartSugg) return;
                 let newAllocs = [...allocations];
+                
+                // Xử lý gộp hộp (Merge packs) nếu chưa khóa
                 smartSugg.items.forEach(it => {
-                    newAllocs.push({ id: Date.now() + Math.random(), type: 'pack', packId: it.packId, qty: it.qty, isLocked: false });
+                    const existingIdx = newAllocs.findIndex(a => a.type === 'pack' && a.packId === it.packId && !a.isLocked);
+                    if (existingIdx !== -1) {
+                        newAllocs[existingIdx] = { ...newAllocs[existingIdx], qty: newAllocs[existingIdx].qty + it.qty };
+                    } else {
+                        newAllocs.push({ id: Date.now() + Math.random(), type: 'pack', packId: it.packId, qty: it.qty, isLocked: false });
+                    }
                 });
+
+                // Xử lý gộp hàng lẻ (Merge singles) nếu chưa khóa
                 if (smartSugg.singles > 0) {
-                    newAllocs.push({ id: Date.now() + Math.random(), type: 'single', qty: smartSugg.singles, isLocked: false });
+                    const existingSingleIdx = newAllocs.findIndex(a => a.type === 'single' && !a.isLocked);
+                    if (existingSingleIdx !== -1) {
+                        newAllocs[existingSingleIdx] = { ...newAllocs[existingSingleIdx], qty: newAllocs[existingSingleIdx].qty + smartSugg.singles };
+                    } else {
+                        newAllocs.push({ id: Date.now() + Math.random(), type: 'single', qty: smartSugg.singles, isLocked: false });
+                    }
                 }
+                
                 setAllocations(newAllocs);
                 setShowSuggestModal(false);
-                showToast("Đã áp dụng tối ưu!");
+                showToast("Đã áp dụng & Gộp tự động!");
             };
 
             const applyManualPack = () => {
@@ -435,8 +450,18 @@
                 if(!pack) return;
                 const q = Math.floor(unallocated / pack.size);
                 if(q > 0) {
-                    setAllocations([...allocations, { id: Date.now(), type: 'pack', packId: pack.id, qty: q, isLocked: false }]);
-                    showToast(`Đã chia vào ${pack.name}`);
+                    let newAllocs = [...allocations];
+                    const existingIdx = newAllocs.findIndex(a => a.type === 'pack' && a.packId === pack.id && !a.isLocked);
+                    if (existingIdx !== -1) {
+                        // Cộng dồn vào dòng có sẵn
+                        newAllocs[existingIdx] = { ...newAllocs[existingIdx], qty: newAllocs[existingIdx].qty + q };
+                        showToast(`Đã gộp thêm ${q} vào ${pack.name}`);
+                    } else {
+                        // Tạo dòng mới nếu chưa có hoặc đã bị khóa
+                        newAllocs.push({ id: Date.now(), type: 'pack', packId: pack.id, qty: q, isLocked: false });
+                        showToast(`Đã chia vào ${pack.name}`);
+                    }
+                    setAllocations(newAllocs);
                 } else {
                     showToast("Số dư nhỏ hơn dung lượng hộp!");
                 }
