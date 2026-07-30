@@ -347,6 +347,9 @@
             ]);
 
             const [showHistory, setShowHistory] = useState(false);
+            
+            const [showSuggestModal, setShowSuggestModal] = useState(false);
+            const [manualPackSelect, setManualPackSelect] = useState(packSizes[0]?.id);
             const [saveName, setSaveName] = useState('');
             const [historyList, setHistoryList] = useState(() => {
                 const saved = localStorage.getItem('tab2History');
@@ -362,6 +365,13 @@
                 setTargetTotal(sum);
             }, [helperPacks, helperSingles, packSizes, showInputHelper]);
 
+            // Cập nhật giá trị mặc định cho Dropdown thủ công nếu danh sách hộp thay đổi
+            useEffect(() => {
+                if (!manualPackSelect && packSizes.length > 0) {
+                    setManualPackSelect(packSizes[0].id);
+                }
+            }, [packSizes, manualPackSelect]);
+
             const currentSum = allocations.reduce((sum, alloc) => sum + (alloc.type === 'pack' ? alloc.qty * (packSizes.find(p => p.id === alloc.packId)?.size || 1) : alloc.qty), 0);
             const unallocated = targetTotal - currentSum;
 
@@ -369,16 +379,68 @@
             const removeAlloc = (id) => setAllocations(allocations.filter(a => a.id !== id));
             const toggleLock = (id) => setAllocations(allocations.map(a => a.id === id ? { ...a, isLocked: !a.isLocked } : a));
 
-            const addPack = () => setAllocations([...allocations, { id: Date.now(), type: 'pack', packId: packSizes[0]?.id, qty: unallocated > 0 ? Math.floor(unallocated / (packSizes[0]?.size || 1)) : 1, isLocked: false }]);
-            const addSingle = () => setAllocations([...allocations, { id: Date.now(), type: 'single', qty: unallocated > 0 ? unallocated : 0, isLocked: false }]);
+            const addPack = () => setAllocations([...allocations, { id: Date.now(), type: 'pack', packId: packSizes[0]?.id, qty: 1, isLocked: false }]);
+            const addSingle = () => setAllocations([...allocations, { id: Date.now(), type: 'single', qty: 0, isLocked: false }]);
 
-            const autoOptimize = () => {
-                if (unallocated <= 0 || !packSizes[0]) return;
-                let remain = unallocated, newAllocs = [...allocations];
-                const qty = Math.floor(remain / packSizes[0].size);
-                if (qty > 0) { newAllocs.push({ id: Date.now(), type: 'pack', packId: packSizes[0].id, qty, isLocked: false }); remain -= (qty * packSizes[0].size); }
-                if (remain > 0) newAllocs.push({ id: Date.now() + 1, type: 'single', qty: remain, isLocked: false });
+            const smartSugg = useMemo(() => {
+                if (unallocated <= 0 || packSizes.length === 0) return null;
+                let bestExact = null;
+                let minCount = Infinity;
+                const sorted = [...packSizes].sort((a,b) => b.size - a.size);
+
+                // DFS tìm nghiệm chẵn hoàn hảo
+                const dfs = (rem, idx, current, count) => {
+                    if (rem === 0) {
+                        if (count < minCount) { minCount = count; bestExact = [...current]; }
+                        return;
+                    }
+                    if (idx >= sorted.length || rem < 0) return;
+                    const pack = sorted[idx];
+                    const maxQ = Math.floor(rem / pack.size);
+                    for (let q = maxQ; q >= 0; q--) {
+                        if (q > 0) current.push({ packId: pack.id, qty: q, name: pack.name, size: pack.size });
+                        dfs(rem - q * pack.size, idx + 1, current, count + q);
+                        if (q > 0) current.pop();
+                    }
+                };
+                
+                // Tránh treo máy với số quá lớn
+                if (unallocated < 500000) dfs(unallocated, 0, [], 0);
+
+                if (bestExact) return { exact: true, items: bestExact, singles: 0 };
+
+                // Fallback: Lấy hộp lớn nhất + phần lẻ
+                const p0 = packSizes[0];
+                const q = Math.floor(unallocated / p0.size);
+                const s = unallocated % p0.size;
+                return { exact: false, items: q > 0 ? [{ packId: p0.id, qty: q, name: p0.name, size: p0.size }] : [], singles: s };
+            }, [unallocated, packSizes]);
+
+            const applySuggestion = () => {
+                if (!smartSugg) return;
+                let newAllocs = [...allocations];
+                smartSugg.items.forEach(it => {
+                    newAllocs.push({ id: Date.now() + Math.random(), type: 'pack', packId: it.packId, qty: it.qty, isLocked: false });
+                });
+                if (smartSugg.singles > 0) {
+                    newAllocs.push({ id: Date.now() + Math.random(), type: 'single', qty: smartSugg.singles, isLocked: false });
+                }
                 setAllocations(newAllocs);
+                setShowSuggestModal(false);
+                showToast("Đã áp dụng tối ưu!");
+            };
+
+            const applyManualPack = () => {
+                const pack = packSizes.find(p => p.id === manualPackSelect);
+                if(!pack) return;
+                const q = Math.floor(unallocated / pack.size);
+                if(q > 0) {
+                    setAllocations([...allocations, { id: Date.now(), type: 'pack', packId: pack.id, qty: q, isLocked: false }]);
+                    showToast(`Đã chia vào ${pack.name}`);
+                } else {
+                    showToast("Số dư nhỏ hơn dung lượng hộp!");
+                }
+                setShowSuggestModal(false);
             };
 
             const handleSave = () => {
@@ -393,7 +455,7 @@
 
             const handleShare = async () => {
                 const { formula } = generateFormulaString(allocations, packSizes);
-                let textShare = `Kết quả chia: ${saveName || 'Bài Toán Ngược'}\nCần chia: ${targetTotal.toLocaleString()}\nKết quả: ${formula || '0'}\n(Đã phân bổ: ${currentSum.toLocaleString()})`;
+                let textShare = `Kết quả chia: ${saveName || 'Bài Toán Ngược'}\nCần chia: ${targetTotal.toLocaleString()}\nKết quả: ${formula || '0'}\n(Đã xếp: ${currentSum.toLocaleString()})`;
                 if (unallocated !== 0) textShare += `\nLệch (Dư/Thiếu): ${unallocated}`;
                 
                 if (navigator.share) {
@@ -404,11 +466,10 @@
             const loadHistory = (entry) => { setAllocations(entry.data); setTargetTotal(entry.total); setShowHistory(false); showToast(`Đã tải: ${entry.name}`); };
             const deleteHistory = (id) => setHistoryList(historyList.filter(h => h.id !== id));
             
-            // Tìm Max Size để cảnh báo
             const maxPackSize = Math.max(...packSizes.map(p => p.size), 0);
 
             return (
-                <div className="p-3 space-y-4 fade-in relative">
+                <div className="p-3 space-y-4 fade-in relative pb-20">
                     {/* Header Input */}
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                         <div className="p-4 flex items-center justify-between gap-4">
@@ -452,16 +513,22 @@
                         <button onClick={() => setShowHistory(true)} className="bg-white p-2.5 rounded-xl shadow-sm border border-gray-200 text-gray-600 active:bg-gray-50"><Icon name="history" size={20}/></button>
                     </div>
 
-                    {/* Status Box */}
-                    <div className={`p-4 rounded-2xl flex items-center justify-between shadow-[0_2px_10px_rgba(0,0,0,0.04)] border transition-colors ${unallocated === 0 ? 'bg-emerald-50 border-emerald-200' : unallocated > 0 ? 'bg-orange-50 border-orange-200' : 'bg-red-50 border-red-200'}`}>
+                    {/* Status Box - Bấm vào đây để gọi Đũa thần */}
+                    <div 
+                        onClick={() => { if (unallocated > 0) setShowSuggestModal(true); }}
+                        className={`p-4 rounded-2xl flex items-center justify-between shadow-[0_2px_10px_rgba(0,0,0,0.04)] border transition-all ${unallocated === 0 ? 'bg-emerald-50 border-emerald-200' : unallocated > 0 ? 'bg-orange-50 border-orange-300 cursor-pointer active:scale-[0.98] hover:shadow-md' : 'bg-red-50 border-red-200'}`}
+                    >
                         <div className="flex items-center gap-3">
-                            <Icon name={unallocated === 0 ? 'check-circle-2' : 'alert-circle'} size={24} color={unallocated === 0 ? '#10b981' : unallocated > 0 ? '#f97316' : '#ef4444'}/>
+                            <Icon name={unallocated === 0 ? 'check-circle-2' : 'alert-circle'} size={24} color={unallocated === 0 ? '#10b981' : unallocated > 0 ? '#ea580c' : '#ef4444'}/>
                             <p className={`text-sm font-black uppercase tracking-wide ${unallocated === 0 ? 'text-emerald-700' : unallocated > 0 ? 'text-orange-700' : 'text-red-700'}`}>
                                 {unallocated === 0 ? 'Đã phân bổ đủ' : unallocated > 0 ? 'Dư (Chưa xếp)' : 'Thiếu hàng (Âm)'}
                             </p>
                         </div>
-                        <div className={`text-3xl font-black ${unallocated === 0 ? 'text-emerald-600' : unallocated > 0 ? 'text-orange-600' : 'text-red-600'}`}>
-                            {Math.abs(unallocated)}
+                        <div className="flex flex-col items-end">
+                            <div className={`text-3xl font-black leading-none ${unallocated === 0 ? 'text-emerald-600' : unallocated > 0 ? 'text-orange-600' : 'text-red-600'}`}>
+                                {Math.abs(unallocated)}
+                            </div>
+                            {unallocated > 0 && <span className="text-[10px] bg-orange-200 text-orange-800 px-1.5 py-0.5 rounded mt-1 font-bold animate-pulse">Bấm để tối ưu</span>}
                         </div>
                     </div>
 
@@ -470,8 +537,6 @@
                         {allocations.map((alloc) => {
                             const isPack = alloc.type === 'pack';
                             const itemTotal = isPack ? (alloc.qty * (packSizes.find(p => p.id === alloc.packId)?.size || 0)) : alloc.qty;
-                            
-                            // Cảnh báo nếu số lẻ lớn hơn dung lượng 1 thùng max
                             const isOverloadSingle = !isPack && alloc.qty >= maxPackSize && maxPackSize > 0;
 
                             return (
@@ -505,20 +570,73 @@
                     </div>
 
                     <div className="flex gap-2 pt-2">
-                        {unallocated > 0 && (
-                            <button onClick={autoOptimize} title="Tự động nhét Dư vào Hộp 1 và Lẻ" className="w-14 flex items-center justify-center bg-indigo-600 text-white rounded-xl shadow-lg active:scale-95 transition-transform">
-                                <Icon name="wand-2" size={20} />
-                            </button>
-                        )}
                         <button onClick={addPack} className="flex-1 py-3.5 bg-white border border-blue-200 shadow-sm text-blue-700 text-[11px] font-bold uppercase tracking-wide rounded-xl flex items-center justify-center gap-1.5 active:bg-blue-50">
-                            <Icon name="box" size={16}/> Hộp (Chia)
+                            <Icon name="box" size={16}/> Hộp Trống
                         </button>
-                        <button onClick={addSingle} className={`flex-1 py-3.5 bg-white border ${unallocated > 0 ? 'border-orange-400 bg-orange-50' : 'border-orange-200'} shadow-sm text-orange-600 text-[11px] font-bold uppercase tracking-wide rounded-xl flex items-center justify-center gap-1.5 active:bg-orange-100`}>
-                            <Icon name="layers" size={16}/> Tách Lẻ {unallocated > 0 ? `(${unallocated})` : ''}
+                        <button onClick={addSingle} className={`flex-1 py-3.5 bg-white border border-orange-200 shadow-sm text-orange-600 text-[11px] font-bold uppercase tracking-wide rounded-xl flex items-center justify-center gap-1.5 active:bg-orange-100`}>
+                            <Icon name="layers" size={16}/> Lẻ Trống
                         </button>
                     </div>
 
-                    {/* Lịch Sử */}
+                    {/* Modal Gợi Ý & Nhập Dư */}
+                    {showSuggestModal && (
+                        <div className="absolute inset-0 bg-gray-900/60 z-50 md:rounded-[32px] flex flex-col justify-end fade-in pb-16">
+                            <div className="bg-white rounded-t-[32px] p-5 space-y-5 slide-up border-t-[6px] border-orange-500 shadow-[0_-10px_30px_rgba(0,0,0,0.15)] relative">
+                                <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-gray-200 rounded-full"></div>
+                                <div className="flex justify-between items-center mt-2">
+                                    <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2"><Icon name="wand-2" size={24} color="#ea580c"/> Tối ưu phần dư</h3>
+                                    <button onClick={() => setShowSuggestModal(false)} className="p-1.5 bg-gray-100 rounded-full active:scale-90"><Icon name="x" size={20}/></button>
+                                </div>
+                                
+                                <div className="bg-orange-50 p-3 rounded-2xl border border-orange-200 flex items-center justify-between">
+                                    <span className="text-orange-800 font-medium text-sm">Lượng hàng chưa xếp:</span>
+                                    <span className="text-2xl font-black text-orange-600">{unallocated}</span>
+                                </div>
+
+                                {/* Khu vực gợi ý AI */}
+                                <div className="space-y-2">
+                                    <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wide">Thuật toán gợi ý tốt nhất</p>
+                                    {smartSugg ? (
+                                        <div className={`p-4 rounded-2xl border ${smartSugg.exact ? 'bg-emerald-50 border-emerald-200' : 'bg-yellow-50 border-yellow-200'}`}>
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <Icon name={smartSugg.exact ? "check-circle-2" : "zap"} size={20} color={smartSugg.exact ? "#10b981" : "#eab308"} />
+                                                <span className={`text-sm font-bold ${smartSugg.exact ? "text-emerald-700" : "text-yellow-700"}`}>
+                                                    {smartSugg.exact ? "Chia chẵn 100%!" : "Không chẵn, ưu tiên Thùng lớn"}
+                                                </span>
+                                            </div>
+                                            <div className="space-y-1.5 pl-7">
+                                                {smartSugg.items.map((it, i) => (
+                                                    <div key={i} className="text-sm font-bold text-gray-800">+ {it.qty} {it.name} <span className="text-gray-400 font-medium">({it.qty * it.size})</span></div>
+                                                ))}
+                                                {smartSugg.singles > 0 && <div className="text-sm font-bold text-orange-600">+ Hàng lẻ: {smartSugg.singles}</div>}
+                                            </div>
+                                            <button onClick={applySuggestion} className={`w-full mt-4 py-3 text-white font-bold rounded-xl active:scale-[0.98] transition-transform flex justify-center items-center gap-2 shadow-sm ${smartSugg.exact ? 'bg-emerald-600' : 'bg-yellow-600'}`}>
+                                                <Icon name="check" size={18}/> Áp dụng gợi ý này
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-gray-500">Không có cấu hình hộp nào.</p>
+                                    )}
+                                </div>
+
+                                {/* Chia thủ công */}
+                                <div className="pt-4 border-t border-gray-100 space-y-2">
+                                    <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wide">Hoặc tự chỉ định chia vào 1 hộp</p>
+                                    <div className="flex gap-2">
+                                        <select value={manualPackSelect} onChange={(e) => setManualPackSelect(e.target.value)} className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 outline-none font-bold text-sm text-blue-700">
+                                            {packSizes.map(p => <option key={p.id} value={p.id}>{p.name} ({p.size})</option>)}
+                                        </select>
+                                        <button onClick={applyManualPack} className="px-5 py-3 bg-blue-600 text-white font-bold rounded-xl active:bg-blue-700 whitespace-nowrap shadow-sm">
+                                            Chia Ngay
+                                        </button>
+                                    </div>
+                                    <p className="text-[10px] text-gray-400 text-center mt-1">Sẽ tự tính số lượng đầy và để dư phần lẻ.</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Modal Lịch Sử */}
                     {showHistory && (
                         <div className="absolute inset-0 bg-gray-900/80 z-50 md:rounded-[32px] overflow-hidden flex flex-col fade-in">
                             <div className="flex justify-between items-center p-4 bg-white border-b border-gray-200">
