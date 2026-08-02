@@ -79,6 +79,7 @@
                 const mult = parseInt(item.multiplier) || 1;
                 const realQty = qty * mult;
 
+                // Tự động bỏ qua các phần tử có số lượng 0
                 if (realQty > 0) {
                     if (item.type === 'pack') {
                         const pack = packSizes.find(p => p.id === item.packId);
@@ -152,9 +153,9 @@
                             {activeTab === 'tab3' && <Tab3Settings packSizes={packSizes} setPackSizes={setPackSizes} showToast={showToast} hasUpdate={hasUpdate} setHasUpdate={setHasUpdate} />}
                         </div>
 
-                        {/* Bottom Navigation - Đẩy bottom-0 thành bottom-6 để nhấc cao lên */}
-                        <div className="absolute bottom-6 left-0 right-0 z-30 pointer-events-none pb-[env(safe-area-inset-bottom,0px)] px-4 pt-2">
-                            <div className="bg-white/90 backdrop-blur-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-gray-200/50 rounded-full flex justify-around p-1.5 pointer-events-auto">
+                        {/* Bottom Navigation - Nổi lên tránh Home Indicator */}
+                        <div className="absolute bottom-[env(safe-area-inset-bottom,20px)] left-4 right-4 z-30 pb-2">
+                            <div className="bg-white/90 backdrop-blur-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-gray-200/50 rounded-full flex justify-around p-1.5">
                                 <NavButton icon="calculator" label="Tính Xuôi" isActive={activeTab === 'tab1'} onClick={() => setActiveTab('tab1')} />
                                 <NavButton icon="package-open" label="Chia Ngược" isActive={activeTab === 'tab2'} onClick={() => setActiveTab('tab2')} />
                                 <NavButton icon="settings" label="Cài Đặt" isActive={activeTab === 'tab3'} onClick={() => setActiveTab('tab3')} hasBadge={hasUpdate} />
@@ -201,7 +202,7 @@
                     onDragStart={(e) => onDragStart && onDragStart(e, item.id)}
                     onDragOver={(e) => onDragOver && onDragOver(e, item)}
                     onDrop={(e) => onDrop && onDrop(e, item.id)}
-                    className={`relative flex items-center p-2 rounded-2xl border transition-all duration-200 ${item.isLocked ? 'bg-gray-50 border-gray-100 opacity-80' : 'bg-white border-gray-200 shadow-sm'}`}
+                    className={`relative flex items-center p-2 rounded-2xl border transition-all duration-200 ${item.isLocked ? 'bg-gray-50 border-gray-100 opacity-80' : (item.qty === 0 ? 'bg-yellow-50/50 border-yellow-200' : 'bg-white border-gray-200 shadow-sm')}`}
                 >
                     {/* Cụm Multiplier / Drag Handle */}
                     <div className="shrink-0 flex flex-col items-center mr-2 relative z-10">
@@ -274,18 +275,28 @@
         }
 
         function Tab1Calculator({ packSizes, showToast }) {
-            const [items, setItems] = useState([
-                { id: Date.now(), type: 'pack', packId: packSizes[0]?.id || '', qty: 0, multiplier: 1, isLocked: false }
-            ]);
+            const [items, setItems] = useState(() => {
+                const saved = localStorage.getItem('t1Items');
+                return saved ? JSON.parse(saved) : [{ id: Date.now(), type: 'pack', packId: packSizes[0]?.id || '', qty: 0, multiplier: 1, isLocked: false }];
+            });
             
             const [saveName, setSaveName] = useState('');
             const [showHistory, setShowHistory] = useState(false);
             const [historyList, setHistoryList] = useState(() => { const s = localStorage.getItem('t1Hist'); return s ? JSON.parse(s) : []; });
+            
+            // Auto-save trạng thái hiện tại
+            useEffect(() => { localStorage.setItem('t1Items', JSON.stringify(items)); }, [items]);
             useEffect(() => { localStorage.setItem('t1Hist', JSON.stringify(historyList)); }, [historyList]);
 
             const addItem = (type) => setItems([...items, { id: Date.now() + Math.random(), type, packId: type === 'pack' ? (packSizes[0]?.id || '') : null, qty: 0, multiplier: 1, isLocked: false }]);
             const updateItem = (id, field, value) => setItems(items.map(i => i.id === id ? { ...i, [field]: value } : i));
             const removeItem = (id) => setItems(items.filter(i => i.id !== id));
+            
+            const resetForm = () => {
+                setItems([{ id: Date.now(), type: 'pack', packId: packSizes[0]?.id || '', qty: 0, multiplier: 1, isLocked: false }]);
+                setSaveName('');
+                showToast("Đã làm mới!");
+            };
 
             const total = useMemo(() => items.reduce((acc, item) => {
                 const mult = item.multiplier || 1;
@@ -295,15 +306,23 @@
 
             const handleSave = () => {
                 if (!saveName.trim()) { showToast("Nhập tên để lưu!"); return; }
-                const { formula } = generateFormulaString(items, packSizes);
+                
+                // Lọc bỏ các mục có số lượng = 0 trước khi lưu
+                const validItems = items.filter(item => (parseInt(item.qty)||0) > 0);
+                
+                const { formula } = generateFormulaString(validItems, packSizes);
                 const finalStr = formula ? `${formula} = ${total.toLocaleString()}` : '0';
-                setHistoryList([{ id: Date.now(), name: saveName, date: new Date().toLocaleString('vi-VN'), data: items, total, formulaStr: finalStr }, ...historyList]);
-                setSaveName(''); showToast("Đã lưu!");
+                
+                setHistoryList([{ id: Date.now(), name: saveName, date: new Date().toLocaleString('vi-VN'), data: validItems, total, formulaStr: finalStr }, ...historyList]);
+                setSaveName(''); showToast("Đã lưu (lọc số 0)!");
             };
 
             const exportCSV = () => {
                 let str = "Loại,Tên,Quy Cách,Hệ Số,Số Lượng,Tổng\n";
-                items.forEach(it => {
+                // Lọc số 0 khi xuất file
+                const validItems = items.filter(item => (parseInt(item.qty)||0) > 0);
+                
+                validItems.forEach(it => {
                     const isPack = it.type === 'pack';
                     const p = isPack ? packSizes.find(x => x.id === it.packId) : null;
                     const size = p ? p.size : 1;
@@ -325,15 +344,16 @@
                         <h2 className="text-[40px] leading-none font-bold text-white tracking-tight z-10 relative mb-4">{total.toLocaleString()}</h2>
                         
                         {/* Toolbar Tinh Gọn */}
-                        <div className="flex gap-1 z-10 relative">
+                        <div className="flex gap-1.5 z-10 relative">
                             <input 
                                 type="text" placeholder="Tên để lưu..." value={saveName} 
                                 onFocus={(e) => e.target.select()} onChange={(e) => setSaveName(e.target.value)} 
                                 className="flex-1 px-3 bg-white/10 rounded-lg text-white placeholder-gray-400 text-[13px] font-medium outline-none backdrop-blur-sm border border-white/10" 
                             />
-                            <button onClick={handleSave} className="bg-blue-600 text-white p-2 rounded-lg active:scale-95"><Icon name="save" size={18}/></button>
-                            <button onClick={exportCSV} className="bg-white/10 text-white p-2 rounded-lg active:scale-95 border border-white/10"><Icon name="file-spreadsheet" size={18}/></button>
-                            <button onClick={() => setShowHistory(true)} className="bg-white/10 text-white p-2 rounded-lg active:scale-95 border border-white/10"><Icon name="history" size={18}/></button>
+                            <button onClick={handleSave} className="bg-blue-600 text-white w-9 h-9 flex justify-center items-center rounded-lg active:scale-95"><Icon name="save" size={16}/></button>
+                            <button onClick={exportCSV} className="bg-white/10 text-white w-9 h-9 flex justify-center items-center rounded-lg active:scale-95 border border-white/10"><Icon name="file-spreadsheet" size={16}/></button>
+                            <button onClick={() => setShowHistory(true)} className="bg-white/10 text-white w-9 h-9 flex justify-center items-center rounded-lg active:scale-95 border border-white/10"><Icon name="history" size={16}/></button>
+                            <button onClick={resetForm} className="bg-red-500/80 text-white w-9 h-9 flex justify-center items-center rounded-lg active:scale-95 border border-white/10"><Icon name="rotate-ccw" size={16}/></button>
                         </div>
                     </div>
 
@@ -379,11 +399,15 @@
         }
 
         function Tab2Divider({ packSizes, showToast }) {
-            const [targetTotal, setTargetTotal] = useState(100);
+            const [targetTotal, setTargetTotal] = useState(() => {
+                const s = localStorage.getItem('t2Target');
+                return s ? parseInt(s) : 100;
+            });
             
-            const [allocations, setAllocations] = useState([
-                { id: Date.now()+'a', type: 'pack', packId: packSizes[0]?.id || '', qty: 0, multiplier: 1, isLocked: false }
-            ]);
+            const [allocations, setAllocations] = useState(() => {
+                const saved = localStorage.getItem('t2Alloc');
+                return saved ? JSON.parse(saved) : [{ id: Date.now()+'a', type: 'pack', packId: packSizes[0]?.id || '', qty: 0, multiplier: 1, isLocked: false }];
+            });
             
             // Drag & Drop State
             const [draggedId, setDraggedId] = useState(null);
@@ -392,6 +416,10 @@
             const [saveName, setSaveName] = useState('');
             const [showHistory, setShowHistory] = useState(false);
             const [historyList, setHistoryList] = useState(() => { const s = localStorage.getItem('t2Hist'); return s ? JSON.parse(s) : []; });
+            
+            // Auto save
+            useEffect(() => { localStorage.setItem('t2Alloc', JSON.stringify(allocations)); }, [allocations]);
+            useEffect(() => { localStorage.setItem('t2Target', targetTotal.toString()); }, [targetTotal]);
             useEffect(() => { localStorage.setItem('t2Hist', JSON.stringify(historyList)); }, [historyList]);
 
             const currentSum = allocations.reduce((sum, item) => {
@@ -405,6 +433,13 @@
             const removeAlloc = (id) => setAllocations(allocations.filter(a => a.id !== id));
             const addPack = () => setAllocations([...allocations, { id: Date.now() + Math.random(), type: 'pack', packId: packSizes[0]?.id, qty: 0, multiplier:1, isLocked: false }]);
             const addSingle = () => setAllocations([...allocations, { id: Date.now() + Math.random(), type: 'single', qty: 0, multiplier:1, isLocked: false }]);
+
+            const resetForm = () => {
+                setAllocations([{ id: Date.now()+'a', type: 'pack', packId: packSizes[0]?.id || '', qty: 0, multiplier: 1, isLocked: false }]);
+                setTargetTotal(100);
+                setSaveName('');
+                showToast("Đã làm mới!");
+            };
 
             // Xử lý Kéo thả Gộp
             const onDragStart = (e, id) => { setDraggedId(id); e.dataTransfer.effectAllowed = "move"; };
@@ -438,25 +473,50 @@
                 const q = Math.floor(unallocated / p0.size);
                 const s = unallocated % p0.size;
                 let newArr = [...allocations];
-                if (q > 0) newArr.push({ id: Date.now() + Math.random(), type: 'pack', packId: p0.id, qty: q, multiplier: 1, isLocked: false });
-                if (s > 0) newArr.push({ id: Date.now() + Math.random(), type: 'single', qty: s, multiplier: 1, isLocked: false });
+                
+                // Tái sử dụng dòng Hộp đang = 0 (nếu có), ngược lại mới tạo dòng mới
+                if (q > 0) {
+                    const emptyPackIdx = newArr.findIndex(a => a.type === 'pack' && a.packId === p0.id && (parseInt(a.qty) || 0) === 0 && !a.isLocked);
+                    if (emptyPackIdx !== -1) {
+                        newArr[emptyPackIdx] = { ...newArr[emptyPackIdx], qty: q };
+                    } else {
+                        newArr.push({ id: Date.now() + Math.random(), type: 'pack', packId: p0.id, qty: q, multiplier: 1, isLocked: false });
+                    }
+                }
+                
+                // Tái sử dụng dòng Lẻ đang = 0 (nếu có), ngược lại mới tạo dòng mới
+                if (s > 0) {
+                    const emptySingleIdx = newArr.findIndex(a => a.type === 'single' && (parseInt(a.qty) || 0) === 0 && !a.isLocked);
+                    if (emptySingleIdx !== -1) {
+                        newArr[emptySingleIdx] = { ...newArr[emptySingleIdx], qty: s };
+                    } else {
+                        newArr.push({ id: Date.now() + Math.random(), type: 'single', qty: s, multiplier: 1, isLocked: false });
+                    }
+                }
+                
                 setAllocations(newArr);
-                showToast("Đã chia tối ưu!");
+                showToast("Đã xếp tự động!");
             };
 
             const handleSave = () => {
                 if (!saveName.trim()) { showToast("Nhập tên để lưu!"); return; }
-                const { formula } = generateFormulaString(allocations, packSizes);
+                
+                // Lọc bỏ 0 trước khi lưu
+                const validAllocations = allocations.filter(a => (parseInt(a.qty)||0) > 0);
+                
+                const { formula } = generateFormulaString(validAllocations, packSizes);
                 let finalStr = formula ? `${formula} = ${currentSum.toLocaleString()}` : '0';
                 if(unallocated !== 0) finalStr += ` (Dư: ${unallocated})`;
 
-                setHistoryList([{ id: Date.now(), name: saveName, date: new Date().toLocaleString('vi-VN'), data: allocations, targetTotal, formulaStr: finalStr }, ...historyList]);
+                setHistoryList([{ id: Date.now(), name: saveName, date: new Date().toLocaleString('vi-VN'), data: validAllocations, targetTotal, formulaStr: finalStr }, ...historyList]);
                 setSaveName(''); showToast("Đã lưu!");
             };
 
             const exportCSV = () => {
                 let str = `TỔNG CẦN CHIA:,${targetTotal}\nLoại,Tên,Quy Cách,Hệ Số,Số Lượng,Tổng\n`;
-                allocations.forEach(it => {
+                const validAllocations = allocations.filter(a => (parseInt(a.qty)||0) > 0);
+                
+                validAllocations.forEach(it => {
                     const isPack = it.type === 'pack';
                     const p = isPack ? packSizes.find(x => x.id === it.packId) : null;
                     const size = p ? p.size : 1;
@@ -493,9 +553,10 @@
                                 onFocus={(e) => e.target.select()} onChange={(e) => setSaveName(e.target.value)} 
                                 className="flex-1 px-3 bg-gray-50 border border-gray-200 rounded-lg text-[13px] font-medium outline-none" 
                             />
-                            <button onClick={handleSave} className="bg-blue-50 text-blue-600 px-3 rounded-lg active:scale-95 border border-blue-100"><Icon name="save" size={16}/></button>
-                            <button onClick={exportCSV} className="bg-gray-50 text-gray-600 px-3 rounded-lg active:scale-95 border border-gray-200"><Icon name="file-spreadsheet" size={16}/></button>
-                            <button onClick={() => setShowHistory(true)} className="bg-gray-50 text-gray-600 px-3 rounded-lg active:scale-95 border border-gray-200"><Icon name="history" size={16}/></button>
+                            <button onClick={handleSave} className="bg-blue-50 text-blue-600 w-10 flex justify-center items-center rounded-lg active:scale-95 border border-blue-100"><Icon name="save" size={16}/></button>
+                            <button onClick={exportCSV} className="bg-gray-50 text-gray-600 w-10 flex justify-center items-center rounded-lg active:scale-95 border border-gray-200"><Icon name="file-spreadsheet" size={16}/></button>
+                            <button onClick={() => setShowHistory(true)} className="bg-gray-50 text-gray-600 w-10 flex justify-center items-center rounded-lg active:scale-95 border border-gray-200"><Icon name="history" size={16}/></button>
+                            <button onClick={resetForm} className="bg-red-50 text-red-500 w-10 flex justify-center items-center rounded-lg active:scale-95 border border-red-100"><Icon name="rotate-ccw" size={16}/></button>
                         </div>
                     </div>
 
@@ -584,16 +645,16 @@
                         <div className="bg-gray-900 p-4 rounded-[20px] shadow-lg text-white flex flex-col gap-2 relative overflow-hidden">
                             <div className="absolute -right-4 -top-4 opacity-10"><Icon name="rocket" size={80}/></div>
                             <div className="z-10">
-                                <h3 className="font-bold text-base text-emerald-400">Bản cập nhật Tối ưu UI!</h3>
-                                <p className="text-gray-300 text-[12px] mt-1">Giao diện phẳng, phông chữ Inter chuyên nghiệp, bố cục khít gọn loại bỏ khoảng trống thừa.</p>
+                                <h3 className="font-bold text-base text-emerald-400">Bản cập nhật Siêu Phàm V6!</h3>
+                                <p className="text-gray-300 text-[12px] mt-1">Lưu trữ thông minh (không sợ mất data khi thoát). Lọc sạch rác (xóa các hộp = 0). Nút Làm mới thần tốc.</p>
                             </div>
-                            <button onClick={() => { setHasUpdate(false); showToast("Đã cập nhật!"); }} className="z-10 mt-1 bg-emerald-500 text-white py-2 px-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 active:scale-95 shadow-md">
-                                <Icon name="download" size={16} /> Cập nhật & Làm mới
+                            <button onClick={() => { setHasUpdate(false); showToast("Đã nâng cấp!"); }} className="z-10 mt-1 bg-emerald-500 text-white py-2 px-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 active:scale-95 shadow-md">
+                                <Icon name="download" size={16} /> Áp dụng tính năng mới
                             </button>
                         </div>
                     ) : (
                         <div className="bg-emerald-50 text-emerald-700 p-3 rounded-2xl flex items-center gap-2 font-semibold border border-emerald-100 text-[12px]">
-                            <Icon name="check-circle-2" size={18} /> Ứng dụng đã ở phiên bản mới nhất.
+                            <Icon name="check-circle-2" size={18} /> Ứng dụng đã ở phiên bản xịn nhất.
                         </div>
                     )}
 
