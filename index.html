@@ -24,15 +24,31 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
-        body { margin: 0; font-family: 'Inter', -apple-system, sans-serif; background-color: #e2e8f0; -webkit-tap-highlight-color: transparent;}
+        :root {
+            --safe-bottom: env(safe-area-inset-bottom, 20px);
+            --safe-top: env(safe-area-inset-top, 20px);
+        }
+        body { 
+            margin: 0; 
+            font-family: 'Inter', -apple-system, sans-serif; 
+            background-color: #F2F2F7; /* Chuẩn màu nền iOS */
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        input, select { user-select: auto; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .fade-in { animation: fadeIn 0.2s ease-in-out; }
+        
+        .fade-in { animation: fadeIn 0.25s ease-out; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        .slide-up { animation: slideUp 0.3s ease-out; }
-        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        
+        .slide-up-modal { animation: slideUpModal 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+        @keyframes slideUpModal { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
         input { border-radius: 0; -webkit-appearance: none; appearance: none; }
-        .bottom-nav-pill { padding-bottom: env(safe-area-inset-bottom, 12px); }
+        
+        /* Padding bù cho thanh tab bar ở dưới */
+        .content-area { padding-bottom: calc(var(--safe-bottom) + 100px); }
     </style>
 </head>
 <body>
@@ -40,6 +56,17 @@
 
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
+
+        // --- HÀM FORMAT SỐ (12.000) ---
+        const formatVN = (num) => {
+            if (num === null || num === undefined || isNaN(num) || num === 0) return "";
+            return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+        };
+
+        const parseVN = (str) => {
+            if (!str) return 0;
+            return parseInt(str.toString().replace(/\./g, '')) || 0;
+        };
 
         const Icon = ({ name, size = 20, className = '', color = 'currentColor' }) => {
             const iconRef = useRef(null);
@@ -65,9 +92,6 @@
                 ];
             });
 
-            // State Cập Nhật PWA (ĐÃ ĐƯỢC KHÔI PHỤC)
-            const [hasUpdate, setHasUpdate] = useState(true);
-
             const [toastMsg, setToastMsg] = useState('');
 
             useEffect(() => { localStorage.setItem('packSizes', JSON.stringify(packSizes)); }, [packSizes]);
@@ -78,36 +102,38 @@
             };
 
             return (
-                <div className="flex justify-center items-center min-h-screen bg-slate-300 md:p-4">
-                    <div className="w-full h-[100dvh] md:max-w-[420px] md:h-[850px] bg-slate-50 md:rounded-[40px] shadow-2xl overflow-hidden flex flex-col relative md:border-[8px] border-slate-800">
+                <div className="flex justify-center h-screen bg-[#F2F2F7] md:p-4 overflow-hidden relative">
+                    <div className="w-full h-full md:max-w-[428px] bg-[#F2F2F7] md:rounded-[40px] md:shadow-2xl overflow-hidden flex flex-col relative md:border-[8px] border-slate-800">
                         
-                        <div className="bg-white pt-[env(safe-area-inset-top,20px)] md:pt-6 pb-3 px-6 shadow-sm z-10 flex justify-center items-center shrink-0">
-                            <h1 className="text-lg font-black text-slate-800 tracking-tight">
+                        {/* Header iOS Style */}
+                        <div className="bg-[#F2F2F7]/90 backdrop-blur-md pt-[env(safe-area-inset-top,20px)] md:pt-6 pb-2 px-6 z-20 flex justify-center items-center shrink-0 border-b border-gray-200">
+                            <h1 className="text-[18px] font-bold text-slate-900 tracking-tight">
                                 {activeTab === 'tab1' && 'Tính Xuôi (Kho)'}
                                 {activeTab === 'tab2' && 'Chia Ngược (Đóng gói)'}
                                 {activeTab === 'tab3' && 'Cài Đặt Hệ Thống'}
                             </h1>
                         </div>
 
+                        {/* Toast */}
                         {toastMsg && (
-                            <div className="absolute top-[env(safe-area-inset-top,60px)] left-1/2 transform -translate-x-1/2 z-50 bg-slate-800 text-white px-5 py-2.5 rounded-full shadow-xl text-sm font-semibold fade-in flex items-center gap-2 whitespace-nowrap">
-                                <Icon name="check-circle-2" size={16}/> {toastMsg}
+                            <div className="absolute top-[env(safe-area-inset-top,60px)] left-1/2 transform -translate-x-1/2 z-[100] bg-slate-800 text-white px-6 py-3 rounded-full shadow-2xl text-sm font-semibold fade-in flex items-center gap-2 whitespace-nowrap">
+                                <Icon name="check-circle-2" size={18}/> {toastMsg}
                             </div>
                         )}
 
-                        <div className="flex-1 overflow-y-auto bg-slate-100 pb-32 hide-scrollbar">
+                        {/* Nội dung chính cuộn */}
+                        <div className="flex-1 overflow-y-auto content-area hide-scrollbar">
                             {activeTab === 'tab1' && <Tab1Calculator packSizes={packSizes} showToast={showToast} />}
                             {activeTab === 'tab2' && <Tab2Divider packSizes={packSizes} showToast={showToast} />}
-                            {/* Pass state cập nhật xuống Tab3 */}
-                            {activeTab === 'tab3' && <Tab3Settings packSizes={packSizes} setPackSizes={setPackSizes} hasUpdate={hasUpdate} setHasUpdate={setHasUpdate} />}
+                            {activeTab === 'tab3' && <Tab3Settings packSizes={packSizes} setPackSizes={setPackSizes} />}
                         </div>
 
-                        <div className="absolute bottom-0 w-full bottom-nav-pill px-4 pb-4 z-20 pointer-events-none">
-                            <div className="bg-white rounded-full shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-slate-200 flex justify-around p-1.5 pointer-events-auto">
+                        {/* Thanh Tab Bar chuẩn Apple */}
+                        <div className="absolute bottom-0 w-full z-30 pb-[env(safe-area-inset-bottom,0px)] bg-white/80 backdrop-blur-xl border-t border-gray-200">
+                            <div className="flex justify-around items-center pt-2 pb-1">
                                 <NavButton icon="calculator" label="Tính Xuôi" isActive={activeTab === 'tab1'} onClick={() => setActiveTab('tab1')} />
                                 <NavButton icon="package-open" label="Chia Ngược" isActive={activeTab === 'tab2'} onClick={() => setActiveTab('tab2')} />
-                                {/* Có dấu chấm đỏ nếu có cập nhật */}
-                                <NavButton icon="settings" label="Cài Đặt" isActive={activeTab === 'tab3'} onClick={() => setActiveTab('tab3')} hasBadge={hasUpdate} />
+                                <NavButton icon="settings" label="Cài Đặt" isActive={activeTab === 'tab3'} onClick={() => setActiveTab('tab3')} />
                             </div>
                         </div>
                     </div>
@@ -115,78 +141,81 @@
             );
         }
 
-        function NavButton({ icon, label, isActive, onClick, hasBadge }) {
+        function NavButton({ icon, label, isActive, onClick }) {
             return (
-                <button onClick={onClick} className={`flex flex-col items-center justify-center w-20 py-2 rounded-full transition-all duration-300 relative ${isActive ? 'bg-blue-600 text-white shadow-md' : 'bg-transparent text-slate-400 hover:text-slate-600'}`}>
-                    <div className="relative">
-                        <Icon name={icon} size={22} color={isActive ? '#ffffff' : 'currentColor'} />
-                        {/* Dấu chấm đỏ (Red dot badge) */}
-                        {hasBadge && !isActive && <span className="absolute -top-1 -right-1.5 flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 border border-white"></span></span>}
-                    </div>
+                <button onClick={onClick} className={`flex flex-col items-center justify-center w-24 h-12 transition-colors ${isActive ? 'text-blue-600' : 'text-slate-400'}`}>
+                    <Icon name={icon} size={24} className={isActive ? "fill-blue-100" : ""} color="currentColor" />
                     <span className={`text-[10px] mt-1 tracking-wide ${isActive ? 'font-bold' : 'font-medium'}`}>{label}</span>
                 </button>
             );
         }
 
-        const RowMultiplier = ({ multiplier, setMultiplier }) => {
+        // --- COMPONENT NHẬP HỆ SỐ (POPUP PRO - Không đè UI) ---
+        const RowMultiplier = ({ multiplier, setMultiplier, packName }) => {
             const [isOpen, setIsOpen] = useState(false);
             const [tempVal, setTempVal] = useState(multiplier);
 
             const apply = () => {
-                const val = parseInt(tempVal) || 1;
+                const val = parseVN(tempVal) || 1;
                 setMultiplier(val);
                 setIsOpen(false);
             };
 
             return (
-                <div className="relative shrink-0">
+                <>
                     <button 
-                        onClick={() => { setTempVal(multiplier); setIsOpen(!isOpen); }}
-                        className={`w-10 h-10 rounded-xl border flex flex-col items-center justify-center cursor-grab active:cursor-grabbing transition-colors ${multiplier > 1 ? 'bg-indigo-100 border-indigo-200 text-indigo-700' : 'bg-slate-50 border-slate-200 text-slate-400 hover:bg-slate-100'}`}
+                        onClick={() => { setTempVal(formatVN(multiplier)); setIsOpen(true); }}
+                        className={`w-[42px] h-[42px] shrink-0 rounded-2xl flex flex-col items-center justify-center transition-colors shadow-sm ${multiplier > 1 ? 'bg-indigo-500 text-white' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}
                     >
-                        <Icon name="grip-vertical" size={14} className="mb-0.5 opacity-60"/>
-                        <span className="text-[10px] font-black leading-none tracking-tighter">x{multiplier}</span>
+                        <Icon name="copy" size={14} className={multiplier > 1 ? "opacity-80 mb-0.5" : "mb-0.5"}/>
+                        <span className="text-[10px] font-bold leading-none">x{formatVN(multiplier)}</span>
                     </button>
 
                     {isOpen && (
-                        <div className="absolute top-12 left-0 bg-white border border-slate-200 shadow-xl rounded-2xl p-2 z-40 w-44 fade-in flex items-center gap-2">
-                            <span className="text-xs font-bold text-slate-500 pl-1">Hệ số:</span>
-                            <div className="flex-1 flex bg-indigo-50 border border-indigo-100 rounded-lg overflow-hidden">
-                                <span className="bg-indigo-100 text-indigo-600 font-bold px-2 py-1.5 text-xs flex items-center">x</span>
-                                <input 
-                                    type="text" inputMode="numeric" pattern="[0-9]*" 
-                                    value={tempVal} 
-                                    onChange={(e) => setTempVal(e.target.value.replace(/[^0-9]/g, ''))}
-                                    onFocus={(e) => e.target.select()}
-                                    className="w-full bg-transparent font-black text-indigo-800 text-sm outline-none px-1 text-center"
-                                />
+                        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 fade-in">
+                            <div className="bg-white rounded-[28px] p-6 w-[320px] shadow-2xl slide-up-modal flex flex-col gap-4">
+                                <div className="text-center">
+                                    <h3 className="text-lg font-bold text-slate-800">Nhập Hệ Số (Lốc/Kiện)</h3>
+                                    <p className="text-xs text-slate-500 mt-1">Áp dụng cho: <b className="text-blue-600">{packName}</b></p>
+                                </div>
+                                
+                                <div className="flex bg-slate-100 rounded-[20px] p-2 items-center">
+                                    <div className="w-12 text-center text-slate-400 font-black text-xl">x</div>
+                                    <input 
+                                        type="text" inputMode="numeric" pattern="[0-9]*" 
+                                        value={tempVal} 
+                                        onChange={(e) => setTempVal(formatVN(parseVN(e.target.value)))}
+                                        onFocus={(e) => e.target.select()}
+                                        className="flex-1 bg-white rounded-[16px] h-14 text-center font-black text-2xl text-indigo-600 outline-none shadow-sm"
+                                    />
+                                </div>
+
+                                <div className="flex gap-2 mt-2">
+                                    <button onClick={() => setIsOpen(false)} className="flex-1 py-3.5 bg-slate-100 text-slate-600 font-bold rounded-[16px]">Hủy</button>
+                                    <button onClick={apply} className="flex-1 py-3.5 bg-indigo-600 text-white font-bold rounded-[16px] shadow-md active:bg-indigo-700">Xác nhận</button>
+                                </div>
                             </div>
-                            <button onClick={apply} className="bg-indigo-600 text-white p-2 rounded-lg active:bg-indigo-700"><Icon name="check" size={14}/></button>
                         </div>
                     )}
-                </div>
+                </>
             );
         };
 
         const generateFormulaString = (items, packSizes) => {
-            let parts = []; let total = 0;
+            let parts = [];
             items.forEach(item => {
-                if (item.qty > 0) {
-                    const mult = item.multiplier || 1;
-                    const finalQty = item.qty * mult;
+                const mult = Number(item.multiplier) || 1;
+                const qtyNum = Number(item.qty) || 0;
+                if (qtyNum > 0) {
                     if (item.type === 'pack') {
                         const pack = packSizes.find(p => p.id === item.packId);
-                        if (pack) {
-                            parts.push(`${finalQty} x ${pack.size}`);
-                            total += finalQty * pack.size;
-                        }
+                        if (pack) { parts.push(`${formatVN(qtyNum * mult)} x ${formatVN(pack.size)}`); }
                     } else {
-                        parts.push(`${finalQty}`);
-                        total += finalQty;
+                        parts.push(`${formatVN(qtyNum * mult)}`);
                     }
                 }
             });
-            return { formula: parts.join(' + '), total };
+            return parts.join(' + ');
         };
 
         // --- TAB 1: TÍNH XUÔI ---
@@ -195,7 +224,15 @@
                 const saved = localStorage.getItem('tab1Data');
                 return saved ? JSON.parse(saved) : [{ id: Date.now(), type: 'pack', packId: packSizes[0]?.id || '', qty: 0, multiplier: 1, isLocked: false }];
             });
+            
+            const [saveName, setSaveName] = useState('');
+            const [showHistory, setShowHistory] = useState(false);
+            const [historyList, setHistoryList] = useState(() => { 
+                const saved = localStorage.getItem('tab1History'); return saved ? JSON.parse(saved) : []; 
+            });
+
             useEffect(() => { localStorage.setItem('tab1Data', JSON.stringify(items)); }, [items]);
+            useEffect(() => { localStorage.setItem('tab1History', JSON.stringify(historyList)); }, [historyList]);
 
             const addItem = (type) => setItems([...items, { id: Date.now() + Math.random(), type, packId: type==='pack' ? packSizes[0]?.id : '', qty: 0, multiplier: 1, isLocked: false }]);
             const updateItem = (id, field, value) => setItems(items.map(i => i.id === id ? { ...i, [field]: value } : i));
@@ -204,79 +241,49 @@
 
             const total = useMemo(() => items.reduce((sum, item) => sum + (item.type === 'pack' ? (Number(item.qty) * (Number(item.multiplier)||1) * (packSizes.find(x => x.id === item.packId)?.size || 0)) : (Number(item.qty) * (Number(item.multiplier)||1))), 0), [items, packSizes]);
 
-            const [showHistory, setShowHistory] = useState(false);
-            const [saveName, setSaveName] = useState('');
-            const [historyList, setHistoryList] = useState(() => { const saved = localStorage.getItem('tab1History'); return saved ? JSON.parse(saved) : []; });
-            useEffect(() => { localStorage.setItem('tab1History', JSON.stringify(historyList)); }, [historyList]);
-
             const handleSave = () => {
-                if (!saveName.trim()) { showToast("Vui lòng nhập tên!"); return; }
-                const { formula } = generateFormulaString(items, packSizes);
-                const finalStr = formula ? `${formula} = ${total.toLocaleString()}` : '0';
-
+                if (!saveName.trim()) { showToast("Vui lòng nhập tên để lưu!"); return; }
+                const formula = generateFormulaString(items, packSizes);
+                const finalStr = formula ? `${formula} = ${formatVN(total)}` : '0';
                 setHistoryList([{ id: Date.now(), name: saveName, date: new Date().toLocaleString('vi-VN'), data: items, total, formulaStr: finalStr }, ...historyList]);
-                setSaveName(''); showToast("Đã lưu lịch sử!");
+                setSaveName(''); showToast("Đã lưu thành công");
             };
+
             const loadHistory = (entry) => { setItems(entry.data); setShowHistory(false); showToast(`Đã tải: ${entry.name}`); };
             const deleteHistory = (id) => setHistoryList(historyList.filter(h => h.id !== id));
 
             return (
-                <div className="p-3 space-y-3 fade-in">
-                    <div className="bg-slate-900 rounded-[24px] p-4 shadow-lg flex flex-col gap-3 relative overflow-hidden">
-                        <div className="absolute -right-4 -top-4 opacity-5"><Icon name="calculator" size={120} /></div>
-                        <div className="flex justify-between items-center z-10">
-                            <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Tổng thành phẩm</p>
-                            <button onClick={clearAll} className="text-red-400 bg-red-400/10 p-1.5 rounded-lg active:bg-red-400/20"><Icon name="rotate-ccw" size={16}/></button>
+                <div className="p-4 space-y-5 fade-in">
+                    {/* Thẻ Card Trắng Lớn (Chuẩn Apple Health style) */}
+                    <div className="bg-white rounded-[32px] p-5 shadow-[0_4px_24px_rgba(0,0,0,0.04)] flex flex-col gap-5 relative">
+                        <div className="flex justify-between items-start">
+                            <div className="flex flex-col">
+                                <span className="text-[12px] font-bold text-slate-400 uppercase tracking-widest mb-1">Tổng Thành Phẩm</span>
+                                <span className="text-[44px] leading-none font-black text-blue-600 truncate max-w-[250px]">{total === 0 ? "0" : formatVN(total)}</span>
+                            </div>
+                            <button onClick={clearAll} className="w-10 h-10 bg-slate-100 text-slate-500 rounded-full flex items-center justify-center active:bg-slate-200"><Icon name="rotate-ccw" size={18}/></button>
                         </div>
-                        <h2 className="text-[40px] leading-none font-black tracking-tight text-white z-10 truncate">{total.toLocaleString()}</h2>
                         
-                        <div className="flex bg-slate-800/80 rounded-xl overflow-hidden border border-slate-700/50 mt-1 z-10">
-                            <input type="text" placeholder="Tên để lưu..." value={saveName} onChange={(e) => setSaveName(e.target.value)} className="flex-1 px-3 py-2 text-sm outline-none font-medium bg-transparent text-white placeholder-slate-500" />
-                            <button onClick={handleSave} className="bg-blue-500 text-white px-4 py-2 active:bg-blue-600 flex items-center justify-center"><Icon name="save" size={18}/></button>
-                            <button onClick={() => setShowHistory(true)} className="bg-slate-700 text-slate-300 px-4 py-2 border-l border-slate-600 active:bg-slate-600"><Icon name="history" size={18}/></button>
+                        {/* Thanh công cụ lưu */}
+                        <div className="flex bg-slate-50 rounded-[20px] p-1.5 border border-slate-100">
+                            <input type="text" placeholder="Tên đơn hàng..." value={saveName} onChange={(e) => setSaveName(e.target.value)} className="flex-1 px-3 bg-transparent outline-none font-semibold text-[14px] text-slate-800" />
+                            <button onClick={handleSave} className="w-12 h-10 bg-blue-600 text-white rounded-[16px] shadow-sm flex items-center justify-center active:scale-95 transition-transform"><Icon name="save" size={18}/></button>
+                            <button onClick={() => setShowHistory(true)} className="w-12 h-10 bg-white text-slate-600 rounded-[16px] shadow-sm ml-1 border border-slate-200 flex items-center justify-center active:scale-95 transition-transform"><Icon name="history" size={18}/></button>
                         </div>
                     </div>
 
-                    <div className="flex gap-2">
-                        <button onClick={() => addItem('pack')} className="flex-1 py-3 bg-white border border-blue-100 shadow-sm text-blue-700 text-[11px] font-bold uppercase tracking-wide rounded-2xl flex items-center justify-center gap-1.5 active:bg-blue-50"><Icon name="box" size={16}/> Thêm Hộp</button>
-                        <button onClick={() => addItem('single')} className="flex-1 py-3 bg-white border border-orange-100 shadow-sm text-orange-600 text-[11px] font-bold uppercase tracking-wide rounded-2xl flex items-center justify-center gap-1.5 active:bg-orange-50"><Icon name="layers" size={16}/> Thêm Lẻ</button>
+                    <div className="flex gap-3">
+                        <button onClick={() => addItem('pack')} className="flex-1 py-4 bg-white shadow-sm text-blue-600 text-[14px] font-bold rounded-[24px] flex items-center justify-center gap-2 active:bg-slate-50 transition-colors"><Icon name="box" size={18}/> Thêm Hộp</button>
+                        <button onClick={() => addItem('single')} className="flex-1 py-4 bg-white shadow-sm text-orange-600 text-[14px] font-bold rounded-[24px] flex items-center justify-center gap-2 active:bg-slate-50 transition-colors"><Icon name="layers" size={18}/> Thêm Lẻ</button>
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                         {items.map(item => (
                             <RowItem key={item.id} item={item} packSizes={packSizes} updateItem={updateItem} removeItem={removeItem} />
                         ))}
                     </div>
 
-                    {/* Modal Lịch Sử (Tính Xuôi) */}
-                    {showHistory && (
-                        <div className="absolute inset-0 bg-slate-900/80 z-50 md:rounded-[32px] overflow-hidden flex flex-col fade-in">
-                            <div className="flex justify-between items-center p-4 bg-white border-b border-slate-200 pt-[env(safe-area-inset-top,16px)]">
-                                <h3 className="font-bold text-slate-800 flex items-center gap-2"><Icon name="history" size={20}/> Lịch sử đã lưu</h3>
-                                <button onClick={() => setShowHistory(false)} className="p-1.5 bg-slate-100 rounded-full"><Icon name="x" size={20}/></button>
-                            </div>
-                            <div className="flex-1 overflow-y-auto p-4 bg-slate-50 space-y-3 pb-[env(safe-area-inset-bottom,20px)]">
-                                {historyList.length === 0 ? <p className="text-center text-slate-500 text-sm mt-10">Chưa có dữ liệu.</p> : historyList.map(entry => (
-                                    <div key={entry.id} className="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-2">
-                                        <div className="flex justify-between items-start">
-                                            <div>
-                                                <p className="font-bold text-slate-800 text-base">{entry.name}</p>
-                                                <p className="text-[11px] text-slate-400">{entry.date}</p>
-                                            </div>
-                                            <span className="text-sm font-black text-blue-700 bg-blue-50 px-2 py-1 rounded-lg">Tổng: {entry.total?.toLocaleString()}</span>
-                                        </div>
-                                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 text-[13px] font-mono text-slate-600 break-all">
-                                            {entry.formulaStr || 'Không có dữ liệu công thức'}
-                                        </div>
-                                        <div className="flex gap-2 mt-1">
-                                            <button onClick={() => loadHistory(entry)} className="flex-1 py-2 bg-blue-600 text-white text-[13px] font-bold rounded-xl active:bg-blue-700 transition-colors flex items-center justify-center gap-1"><Icon name="download" size={16}/> Tải lại</button>
-                                            <button onClick={() => deleteHistory(entry.id)} className="px-4 py-2 bg-red-50 text-red-600 rounded-xl active:bg-red-100"><Icon name="trash-2" size={18}/></button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+                    {showHistory && <HistoryModal type="Tính Xuôi" historyList={historyList} close={() => setShowHistory(false)} loadHistory={loadHistory} deleteHistory={deleteHistory} />}
                 </div>
             );
         }
@@ -291,38 +298,29 @@
                 return saved ? JSON.parse(saved) : [{ id: Date.now(), type: 'pack', packId: packSizes[0]?.id || '', qty: 0, multiplier: 1, isLocked: false }];
             });
             
-            // CÁC STATE CÔNG CỤ NHẬP
             const [showInputHelper, setShowInputHelper] = useState(false);
             const [helperPacks, setHelperPacks] = useState([{ id: Date.now(), packId: packSizes[0]?.id, qty: 0 }]);
             const [helperSingles, setHelperSingles] = useState(0);
 
-            // MODAL GỢI Ý & LỊCH SỬ
             const [showSuggestModal, setShowSuggestModal] = useState(false);
             const [manualPackSelect, setManualPackSelect] = useState(packSizes[0]?.id);
-            const [showHistory, setShowHistory] = useState(false);
+
             const [saveName, setSaveName] = useState('');
+            const [showHistory, setShowHistory] = useState(false);
             const [historyList, setHistoryList] = useState(() => {
-                const saved = localStorage.getItem('tab2History');
-                return saved ? JSON.parse(saved) : [];
+                const saved = localStorage.getItem('tab2History'); return saved ? JSON.parse(saved) : [];
             });
 
             useEffect(() => { localStorage.setItem('tab2Total', targetTotal); }, [targetTotal]);
             useEffect(() => { localStorage.setItem('tab2Allocs', JSON.stringify(allocations)); }, [allocations]);
             useEffect(() => { localStorage.setItem('tab2History', JSON.stringify(historyList)); }, [historyList]);
 
-            // Logic tính tổng từ Công cụ nhập
             useEffect(() => {
                 if(!showInputHelper) return;
                 let sum = parseInt(helperSingles) || 0;
                 helperPacks.forEach(p => { sum += (parseInt(p.qty) || 0) * (packSizes.find(x => x.id === p.packId)?.size || 0); });
                 setTargetTotal(sum);
             }, [helperPacks, helperSingles, packSizes, showInputHelper]);
-            
-            useEffect(() => {
-                if (!manualPackSelect && packSizes.length > 0) {
-                    setManualPackSelect(packSizes[0].id);
-                }
-            }, [packSizes, manualPackSelect]);
 
             const currentSum = allocations.reduce((sum, a) => sum + (a.type === 'pack' ? Number(a.qty) * (Number(a.multiplier)||1) * (packSizes.find(p => p.id === a.packId)?.size || 1) : Number(a.qty) * (Number(a.multiplier)||1)), 0);
             const unallocated = targetTotal - currentSum;
@@ -336,17 +334,27 @@
             const clearAll = () => {
                 setTargetTotal(0);
                 setAllocations([{ id: Date.now(), type: 'pack', packId: packSizes[0]?.id, qty: 0, multiplier: 1, isLocked: false }]);
-                showToast("Đã làm mới đơn hàng");
+                showToast("Đã làm mới");
             };
 
-            // THUẬT TOÁN ĐŨA THẦN (CHIA THEO Ý ĐỊNH NGƯỜI DÙNG)
+            const handleSave = () => {
+                if (!saveName.trim()) { showToast("Vui lòng nhập tên để lưu!"); return; }
+                const formula = generateFormulaString(allocations, packSizes);
+                let finalStr = formula ? `${formula} = ${formatVN(currentSum)}` : '0';
+                if(unallocated !== 0) finalStr += ` (Dư: ${formatVN(unallocated)})`;
+
+                setHistoryList([{ id: Date.now(), name: saveName, date: new Date().toLocaleString('vi-VN'), data: allocations, total: targetTotal, formulaStr: finalStr }, ...historyList]);
+                setSaveName(''); showToast("Đã lưu thành công");
+            };
+
+            const loadHistory = (entry) => { setAllocations(entry.data); setTargetTotal(entry.total); setShowHistory(false); showToast(`Đã tải: ${entry.name}`); };
+            const deleteHistory = (id) => setHistoryList(historyList.filter(h => h.id !== id));
+
             const handleSmartFillClick = () => {
                 if (unallocated <= 0) return;
-
                 const emptyRows = allocations.filter(a => a.type === 'pack' && Number(a.qty) === 0 && !a.isLocked);
 
                 if (emptyRows.length > 0) {
-                    // Ưu tiên dòng = 0 do user chọn
                     let currentRem = unallocated;
                     let newAllocs = [...allocations];
                     
@@ -365,7 +373,6 @@
                         }
                     });
 
-                    // Đổ phần dư còn lại vào Lẻ
                     if (currentRem > 0) {
                          const singleIdx = newAllocs.findIndex(a => a.type === 'single' && !a.isLocked && (Number(a.multiplier)||1) === 1);
                          if (singleIdx !== -1) {
@@ -375,50 +382,10 @@
                          }
                     }
                     setAllocations(newAllocs);
-                    showToast("Đã chia theo hộp bạn chọn!");
+                    showToast("Đã tự động xếp!");
                 } else {
-                    // Nếu không có hộp 0, bật Popup Gợi ý
                     setShowSuggestModal(true);
                 }
-            };
-
-            // Logic gợi ý cho Popup
-            const smartSugg = useMemo(() => {
-                if (unallocated <= 0 || packSizes.length === 0) return null;
-                let bestExact = null;
-                let minCount = Infinity;
-                const sorted = [...packSizes].sort((a,b) => b.size - a.size);
-                const dfs = (rem, idx, current, count) => {
-                    if (rem === 0) {
-                        if (count < minCount) { minCount = count; bestExact = [...current]; }
-                        return;
-                    }
-                    if (idx >= sorted.length || rem < 0) return;
-                    const pack = sorted[idx];
-                    const maxQ = Math.floor(rem / pack.size);
-                    for (let q = maxQ; q >= 0; q--) {
-                        if (q > 0) current.push({ packId: pack.id, qty: q, name: pack.name, size: pack.size });
-                        dfs(rem - q * pack.size, idx + 1, current, count + q);
-                        if (q > 0) current.pop();
-                    }
-                };
-                if (unallocated < 50000) dfs(unallocated, 0, [], 0);
-                if (bestExact) return { exact: true, items: bestExact, singles: 0 };
-                
-                const p0 = packSizes[0];
-                const q = Math.floor(unallocated / p0.size);
-                const s = unallocated % p0.size;
-                return { exact: false, items: q > 0 ? [{ packId: p0.id, qty: q, name: p0.name, size: p0.size }] : [], singles: s };
-            }, [unallocated, packSizes]);
-
-            const applySuggestion = () => {
-                if (!smartSugg) return;
-                let newAllocs = [...allocations];
-                smartSugg.items.forEach(it => {
-                    newAllocs.push({ id: Date.now() + Math.random(), type: 'pack', packId: it.packId, qty: it.qty, multiplier: 1, isLocked: false });
-                });
-                setAllocations(newAllocs);
-                setShowSuggestModal(false);
             };
 
             const applyManualPack = () => {
@@ -433,191 +400,122 @@
                 setShowSuggestModal(false);
             };
 
-            const handleSave = () => {
-                if (!saveName.trim()) { showToast("Nhập tên để lưu!"); return; }
-                const { formula } = generateFormulaString(allocations, packSizes);
-                let finalStr = formula ? `${formula} = ${currentSum.toLocaleString()}` : '0';
-                if(unallocated !== 0) finalStr += ` (Dư: ${unallocated})`;
-
-                setHistoryList([{ id: Date.now(), name: saveName, date: new Date().toLocaleString('vi-VN'), data: allocations, total: targetTotal, formulaStr: finalStr }, ...historyList]);
-                setSaveName(''); showToast("Đã lưu lịch sử!");
-            };
-
-            const loadHistory = (entry) => { setAllocations(entry.data); setTargetTotal(entry.total); setShowHistory(false); showToast(`Đã tải: ${entry.name}`); };
-            const deleteHistory = (id) => setHistoryList(historyList.filter(h => h.id !== id));
-            
-            const maxPackSize = Math.max(...packSizes.map(p => p.size), 0);
-
             return (
-                <div className="p-3 space-y-3 fade-in relative">
-                    <div className="bg-white rounded-[24px] shadow-sm border border-slate-200 overflow-hidden">
-                        <div className="p-4 flex items-center justify-between gap-3 border-b border-slate-100">
-                            <div className="flex flex-col gap-1 shrink-0">
-                                <span className="text-[11px] font-black text-slate-400 uppercase tracking-wider">Tổng cần chia</span>
-                                <button onClick={() => setShowInputHelper(!showInputHelper)} className="text-[10px] text-blue-500 font-semibold flex items-center gap-0.5 text-left">
-                                    <Icon name={showInputHelper ? "chevron-up" : "chevron-down"} size={12}/> 
-                                    {showInputHelper ? "Ẩn công cụ" : "Dùng công cụ nhập"}
-                                </button>
+                <div className="p-4 space-y-5 fade-in">
+                    {/* Thẻ Nhập Tổng Cao Cấp */}
+                    <div className="bg-white rounded-[32px] p-5 shadow-[0_4px_24px_rgba(0,0,0,0.04)] flex flex-col gap-4">
+                        <div className="flex justify-between items-start">
+                            <div className="flex flex-col flex-1 pr-2">
+                                <span className="text-[12px] font-bold text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-2">
+                                    Tổng cần chia
+                                    <button onClick={() => setShowInputHelper(!showInputHelper)} className="text-[10px] text-blue-500 font-bold bg-blue-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                        <Icon name={showInputHelper ? "chevron-up" : "plus"} size={10}/> Kho
+                                    </button>
+                                </span>
+                                <input 
+                                    type="text" inputMode="numeric" pattern="[0-9]*" 
+                                    value={targetTotal === 0 ? '' : formatVN(targetTotal)} 
+                                    onChange={(e) => { setTargetTotal(parseVN(e.target.value)); setShowInputHelper(false); }} 
+                                    onFocus={(e) => e.target.select()}
+                                    placeholder="0"
+                                    className="w-full text-left text-[44px] font-black text-blue-600 outline-none bg-transparent"
+                                />
                             </div>
-                            <input 
-                                type="text" inputMode="numeric" pattern="[0-9]*" 
-                                value={targetTotal === 0 ? '' : targetTotal} 
-                                onChange={(e) => { setTargetTotal(parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0); setShowInputHelper(false); }} 
-                                onFocus={(e) => e.target.select()}
-                                placeholder="0"
-                                className="w-full text-right text-4xl font-black text-blue-600 outline-none bg-transparent"
-                            />
+                            <button onClick={clearAll} className="w-10 h-10 bg-slate-100 text-slate-500 rounded-full flex items-center justify-center shrink-0 active:bg-slate-200"><Icon name="rotate-ccw" size={18}/></button>
                         </div>
                         
-                        {/* GIAO DIỆN CÔNG CỤ NHẬP */}
+                        {/* Công cụ tính kho mở rộng */}
                         {showInputHelper && (
-                            <div className="bg-blue-50/50 p-3 border-b border-slate-100 space-y-2 fade-in">
-                                <p className="text-[10px] text-blue-800 font-bold uppercase tracking-wider mb-1">Tính ra tổng từ hàng sẵn có:</p>
+                            <div className="bg-slate-50 rounded-[20px] p-3 space-y-2 border border-slate-100 fade-in">
                                 {helperPacks.map(hp => (
                                     <div key={hp.id} className="flex gap-2">
-                                        <select value={hp.packId} onChange={(e) => setHelperPacks(helperPacks.map(p => p.id === hp.id ? {...p, packId: e.target.value} : p))} className="flex-1 bg-white border border-blue-200 rounded-lg text-[13px] font-bold text-slate-700 p-2 outline-none">
-                                            {packSizes.map(p => <option key={p.id} value={p.id}>{p.name} ({p.size})</option>)}
+                                        <select value={hp.packId} onChange={(e) => setHelperPacks(helperPacks.map(p => p.id === hp.id ? {...p, packId: e.target.value} : p))} className="flex-1 bg-white border border-slate-200 shadow-sm rounded-[16px] text-[14px] font-bold text-slate-700 px-3 outline-none">
+                                            {packSizes.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                                         </select>
                                         <input 
                                             type="text" inputMode="numeric" pattern="[0-9]*" placeholder="SL" 
-                                            value={hp.qty===0?'':hp.qty} 
-                                            onChange={(e)=>setHelperPacks(helperPacks.map(p => p.id === hp.id ? {...p, qty: parseInt(e.target.value.replace(/[^0-9]/g, ''))||0} : p))} 
+                                            value={hp.qty===0?'':formatVN(hp.qty)} 
+                                            onChange={(e)=>setHelperPacks(helperPacks.map(p => p.id === hp.id ? {...p, qty: parseVN(e.target.value)} : p))} 
                                             onFocus={(e) => e.target.select()}
-                                            className="w-16 bg-white border border-blue-200 rounded-lg text-center font-bold text-sm text-slate-800 outline-none" 
+                                            className="w-20 bg-white border border-slate-200 shadow-sm rounded-[16px] text-center font-bold text-[15px] text-slate-800 outline-none py-2.5" 
                                         />
                                     </div>
                                 ))}
                                 <div className="flex gap-2 mt-2 items-center">
-                                    <button onClick={() => setHelperPacks([...helperPacks, { id: Date.now(), packId: packSizes[0]?.id, qty: 0 }])} className="text-[10px] text-blue-600 bg-blue-100 py-1.5 px-2 rounded-lg font-bold flex items-center gap-1 active:scale-95"><Icon name="plus" size={12}/> Hộp</button>
-                                    <div className="flex-1 flex items-center gap-2 border-l border-blue-200 pl-3">
-                                        <span className="text-[10px] text-orange-600 font-bold uppercase">Lẻ:</span>
+                                    <button onClick={() => setHelperPacks([...helperPacks, { id: Date.now(), packId: packSizes[0]?.id, qty: 0 }])} className="text-[12px] text-blue-600 bg-blue-50 py-2 px-3 rounded-[12px] font-bold active:bg-blue-100">Thêm Hộp</button>
+                                    <div className="flex-1 flex items-center gap-2 border-l border-slate-200 pl-2">
+                                        <span className="text-[11px] text-slate-500 font-bold uppercase">Lẻ:</span>
                                         <input 
-                                            type="text" inputMode="numeric" pattern="[0-9]*" 
-                                            value={helperSingles===0?'':helperSingles} 
-                                            onChange={(e)=>setHelperSingles(parseInt(e.target.value.replace(/[^0-9]/g, ''))||0)} 
+                                            type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0"
+                                            value={helperSingles===0?'':formatVN(helperSingles)} 
+                                            onChange={(e)=>setHelperSingles(parseVN(e.target.value))} 
                                             onFocus={(e) => e.target.select()}
-                                            className="flex-1 bg-white border border-orange-200 rounded-lg text-center font-bold text-sm p-1.5 outline-none text-orange-600" 
+                                            className="flex-1 bg-white border border-slate-200 shadow-sm rounded-[12px] text-center font-bold text-[15px] py-2 outline-none text-slate-700" 
                                         />
                                     </div>
                                 </div>
                             </div>
                         )}
 
-                        <div className="flex bg-slate-50">
-                            <input type="text" placeholder="Tên để lưu..." value={saveName} onChange={(e) => setSaveName(e.target.value)} className="flex-1 px-4 py-3 text-[13px] outline-none font-semibold bg-transparent text-slate-700" />
-                            <button onClick={handleSave} className="px-4 py-3 text-blue-600 bg-blue-50/50 border-l border-slate-200 active:bg-blue-100"><Icon name="save" size={18}/></button>
-                            <button className="px-4 py-3 text-slate-500 border-l border-slate-200 active:bg-slate-200"><Icon name="file-spreadsheet" size={18}/></button>
-                            <button onClick={() => setShowHistory(true)} className="px-4 py-3 text-slate-500 border-l border-slate-200 active:bg-slate-200"><Icon name="history" size={18}/></button>
-                            <button onClick={clearAll} className="px-4 py-3 text-red-500 bg-red-50 border-l border-slate-200 active:bg-red-100"><Icon name="rotate-ccw" size={18}/></button>
+                        <div className="flex bg-slate-50 rounded-[20px] p-1.5 border border-slate-100">
+                            <input type="text" placeholder="Tên đơn hàng..." value={saveName} onChange={(e) => setSaveName(e.target.value)} className="flex-1 px-3 bg-transparent outline-none font-semibold text-[14px] text-slate-800" />
+                            <button onClick={handleSave} className="w-12 h-10 bg-blue-600 text-white rounded-[16px] shadow-sm flex items-center justify-center active:scale-95 transition-transform"><Icon name="save" size={18}/></button>
+                            <button onClick={() => setShowHistory(true)} className="w-12 h-10 bg-white text-slate-600 rounded-[16px] shadow-sm ml-1 border border-slate-200 flex items-center justify-center active:scale-95 transition-transform"><Icon name="history" size={18}/></button>
                         </div>
                     </div>
 
+                    {/* Thẻ Báo Dư/Thiếu Lớn Rõ Ràng */}
                     <div 
                         onClick={() => { if (unallocated > 0) handleSmartFillClick(); }}
-                        className={`p-3.5 rounded-[20px] flex items-center justify-between shadow-sm border transition-all ${unallocated === 0 ? 'bg-emerald-50 border-emerald-200' : unallocated > 0 ? 'bg-amber-50 border-amber-300 cursor-pointer active:scale-[0.98]' : 'bg-rose-50 border-rose-200'}`}
+                        className={`p-5 rounded-[28px] flex items-center justify-between shadow-sm transition-all ${unallocated === 0 ? 'bg-emerald-500' : unallocated > 0 ? 'bg-amber-500 cursor-pointer active:scale-95' : 'bg-rose-500'}`}
                     >
-                        <div className="flex flex-col">
-                            <span className={`text-[11px] font-black uppercase tracking-wider ${unallocated === 0 ? 'text-emerald-600' : unallocated > 0 ? 'text-amber-700' : 'text-rose-700'}`}>
-                                {unallocated === 0 ? 'Đã phân bổ đủ' : unallocated > 0 ? 'Dư (Bấm để xếp nốt)' : 'Thiếu hàng (Âm)'}
+                        <div className="flex flex-col text-white">
+                            <span className="text-[12px] font-bold uppercase tracking-wider opacity-90">
+                                {unallocated === 0 ? 'Hoàn thành' : unallocated > 0 ? 'Chưa xếp (Bấm để gộp)' : 'Lỗi: Bị Âm'}
+                            </span>
+                            <span className="text-[32px] font-black leading-none mt-1">
+                                {Math.abs(unallocated) === 0 ? "0" : formatVN(Math.abs(unallocated))}
                             </span>
                         </div>
-                        <div className={`text-[28px] font-black leading-none ${unallocated === 0 ? 'text-emerald-600' : unallocated > 0 ? 'text-amber-600' : 'text-rose-600'}`}>
-                            {Math.abs(unallocated)}
-                        </div>
+                        {unallocated > 0 && <div className="w-12 h-12 bg-white/20 rounded-full flex justify-center items-center text-white"><Icon name="wand-2" size={24}/></div>}
+                        {unallocated === 0 && <div className="w-12 h-12 bg-white/20 rounded-full flex justify-center items-center text-white"><Icon name="check" size={24}/></div>}
                     </div>
 
-                    <div className="flex gap-2">
-                        <button onClick={addPack} className="flex-1 py-2.5 bg-white border border-blue-100 shadow-sm text-blue-700 text-[11px] font-bold uppercase tracking-wide rounded-xl flex items-center justify-center gap-1.5 active:bg-blue-50"><Icon name="box" size={16}/> Thêm Hộp</button>
-                        <button onClick={addSingle} className={`flex-1 py-2.5 bg-white border border-orange-100 shadow-sm text-orange-600 text-[11px] font-bold uppercase tracking-wide rounded-xl flex items-center justify-center gap-1.5 active:bg-orange-50`}><Icon name="layers" size={16}/> Thêm Lẻ</button>
+                    <div className="flex gap-3">
+                        <button onClick={addPack} className="flex-1 py-4 bg-white shadow-sm text-blue-600 text-[14px] font-bold rounded-[24px] flex items-center justify-center gap-2 active:bg-slate-50 transition-colors"><Icon name="box" size={18}/> Hộp Mới</button>
+                        <button onClick={addSingle} className="flex-1 py-4 bg-white shadow-sm text-orange-600 text-[14px] font-bold rounded-[24px] flex items-center justify-center gap-2 active:bg-slate-50 transition-colors"><Icon name="layers" size={18}/> Lẻ Mới</button>
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                         {allocations.map((alloc) => (
-                            <RowItem key={alloc.id} item={alloc} packSizes={packSizes} updateItem={updateAlloc} removeItem={removeAlloc} maxPackSize={maxPackSize} />
+                            <RowItem key={alloc.id} item={alloc} packSizes={packSizes} updateItem={updateAlloc} removeItem={removeAlloc} />
                         ))}
                     </div>
 
-                    {/* MODAL CHỌN THỦ CÔNG */}
+                    {showHistory && <HistoryModal type="Chia Ngược" historyList={historyList} close={() => setShowHistory(false)} loadHistory={loadHistory} deleteHistory={deleteHistory} />}
+
+                    {/* MODAL GỢI Ý ĐŨA THẦN MỚI */}
                     {showSuggestModal && (
-                        <div className="absolute inset-0 bg-slate-900/60 z-50 md:rounded-[32px] flex flex-col justify-end fade-in pb-20">
-                            <div className="bg-white rounded-t-[32px] p-5 space-y-5 slide-up border-t-[6px] border-amber-500 shadow-2xl relative">
-                                <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-slate-200 rounded-full"></div>
-                                <div className="flex justify-between items-center mt-2">
-                                    <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2"><Icon name="wand-2" size={24} color="#ea580c"/> Gợi ý tự động</h3>
-                                    <button onClick={() => setShowSuggestModal(false)} className="p-1.5 bg-slate-100 rounded-full active:scale-90"><Icon name="x" size={20}/></button>
+                        <div className="fixed inset-0 bg-slate-900/40 z-[60] flex items-end fade-in">
+                            <div className="bg-white rounded-t-[40px] p-6 w-full shadow-2xl slide-up-modal pb-[calc(env(safe-area-inset-bottom,20px)+20px)]">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h3 className="font-bold text-slate-800 text-xl flex items-center gap-2">Chỉ định Hộp</h3>
+                                    <button onClick={() => setShowSuggestModal(false)} className="w-8 h-8 bg-slate-100 text-slate-600 rounded-full flex justify-center items-center"><Icon name="x" size={18}/></button>
                                 </div>
-                                
-                                <div className="bg-amber-50 p-3 rounded-2xl border border-amber-200 flex items-center justify-between">
-                                    <span className="text-amber-800 font-medium text-sm">Cần xếp:</span>
-                                    <span className="text-2xl font-black text-amber-600">{unallocated}</span>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Phương án tốt nhất</p>
-                                    {smartSugg ? (
-                                        <div className={`p-4 rounded-2xl border ${smartSugg.exact ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
-                                            <div className="flex items-center gap-2 mb-3">
-                                                <Icon name={smartSugg.exact ? "check-circle-2" : "zap"} size={20} color={smartSugg.exact ? "#10b981" : "#d97706"} />
-                                                <span className={`text-sm font-bold ${smartSugg.exact ? "text-emerald-700" : "text-amber-700"}`}>
-                                                    {smartSugg.exact ? "Chia chẵn 100%!" : "Không chẵn, lấy thùng lớn nhất"}
-                                                </span>
-                                            </div>
-                                            <div className="space-y-1.5 pl-7">
-                                                {smartSugg.items.map((it, i) => (
-                                                    <div key={i} className="text-sm font-bold text-slate-800">+ {it.qty} {it.name} <span className="text-slate-400 font-medium">({it.qty * it.size})</span></div>
-                                                ))}
-                                                {smartSugg.singles > 0 && <div className="text-sm font-bold text-orange-600">(Phần dư {smartSugg.singles} sẽ đưa vào Lẻ)</div>}
-                                            </div>
-                                            <button onClick={applySuggestion} className={`w-full mt-4 py-3 text-white font-bold rounded-xl active:scale-[0.98] transition-transform flex justify-center items-center gap-2 shadow-sm ${smartSugg.exact ? 'bg-emerald-600' : 'bg-amber-600'}`}>
-                                                Thêm vào bảng
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <p className="text-sm text-slate-500">Không có cấu hình hộp.</p>
-                                    )}
-                                </div>
-
-                                <div className="pt-4 border-t border-slate-100 space-y-2">
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Hoặc tự chỉ định 1 loại hộp</p>
+                                <div className="space-y-4">
+                                    <div className="bg-slate-50 rounded-[20px] p-4 flex justify-between items-center border border-slate-100">
+                                        <span className="text-slate-500 font-semibold">Phần dư cần chia:</span>
+                                        <span className="text-2xl font-black text-amber-600">{formatVN(unallocated)}</span>
+                                    </div>
                                     <div className="flex gap-2">
-                                        <select value={manualPackSelect} onChange={(e) => setManualPackSelect(e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 outline-none font-bold text-sm text-blue-700">
-                                            {packSizes.map(p => <option key={p.id} value={p.id}>{p.name} ({p.size})</option>)}
+                                        <select value={manualPackSelect} onChange={(e) => setManualPackSelect(e.target.value)} className="flex-1 bg-white border border-slate-200 rounded-[20px] px-4 outline-none font-bold text-[16px] text-blue-700 shadow-sm h-14">
+                                            {packSizes.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                                         </select>
-                                        <button onClick={applyManualPack} className="px-5 py-3 bg-blue-600 text-white font-bold rounded-xl active:bg-blue-700 whitespace-nowrap shadow-sm">
-                                            Thêm Ngay
-                                        </button>
                                     </div>
+                                    <button onClick={applyManualPack} className="w-full h-14 bg-blue-600 text-white font-bold text-[16px] rounded-[20px] active:bg-blue-700 shadow-md">
+                                        Tự động xếp vào hộp này
+                                    </button>
                                 </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* MODAL LỊCH SỬ (Chia Ngược) */}
-                    {showHistory && (
-                        <div className="absolute inset-0 bg-slate-900/80 z-50 md:rounded-[32px] overflow-hidden flex flex-col fade-in">
-                            <div className="flex justify-between items-center p-4 bg-white border-b border-slate-200 pt-[env(safe-area-inset-top,16px)]">
-                                <h3 className="font-bold text-slate-800 flex items-center gap-2"><Icon name="history" size={20}/> Lịch sử chia</h3>
-                                <button onClick={() => setShowHistory(false)} className="p-1.5 bg-slate-100 rounded-full"><Icon name="x" size={20}/></button>
-                            </div>
-                            <div className="flex-1 overflow-y-auto p-4 bg-slate-50 space-y-3 pb-[env(safe-area-inset-bottom,20px)]">
-                                {historyList.length === 0 ? <p className="text-center text-slate-500 text-sm mt-10">Chưa có dữ liệu.</p> : historyList.map(entry => (
-                                    <div key={entry.id} className="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-2">
-                                        <div className="flex justify-between items-start">
-                                            <div>
-                                                <p className="font-bold text-slate-800 text-base">{entry.name}</p>
-                                                <p className="text-[11px] text-slate-400">{entry.date}</p>
-                                            </div>
-                                            <span className="text-sm font-black text-orange-600 bg-orange-50 px-2 py-1 rounded-lg">Cần chia: {entry.total?.toLocaleString()}</span>
-                                        </div>
-                                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 text-[13px] font-mono text-slate-600 break-all">
-                                            {entry.formulaStr || 'Không có dữ liệu'}
-                                        </div>
-                                        <div className="flex gap-2 mt-1">
-                                            <button onClick={() => loadHistory(entry)} className="flex-1 py-2 bg-blue-600 text-white text-[13px] font-bold rounded-xl active:bg-blue-700 flex items-center justify-center gap-1"><Icon name="download" size={16}/> Tải lại</button>
-                                            <button onClick={() => deleteHistory(entry.id)} className="px-4 py-2 bg-red-50 text-red-600 rounded-xl active:bg-red-100"><Icon name="trash-2" size={18}/></button>
-                                        </div>
-                                    </div>
-                                ))}
                             </div>
                         </div>
                     )}
@@ -625,111 +523,131 @@
             );
         }
 
-        // --- ROW ITEM ---
-        function RowItem({ item, packSizes, updateItem, removeItem, maxPackSize }) {
+        // --- ROW ITEM (THIẾT KẾ CLEAN UI, KHÔNG OVERLAP) ---
+        function RowItem({ item, packSizes, updateItem, removeItem }) {
             const isPack = item.type === 'pack';
             const mult = Number(item.multiplier) || 1;
             const qtyNum = Number(item.qty) || 0;
             const itemTotal = isPack ? (qtyNum * mult * (packSizes.find(p => p.id === item.packId)?.size || 0)) : (qtyNum * mult);
-            const isOverload = !isPack && maxPackSize && qtyNum >= maxPackSize;
             const isWaiting = qtyNum === 0;
+            
+            const packName = isPack ? (packSizes.find(p => p.id === item.packId)?.name || 'Hộp') : 'Hàng Lẻ';
 
             return (
-                <div className={`flex items-center gap-2 p-2 rounded-2xl border transition-colors ${item.isLocked ? 'bg-slate-100 border-slate-200 opacity-60' : (isWaiting ? 'bg-amber-50/40 border-amber-200' : 'bg-white border-slate-200')} shadow-sm`}>
-                    
-                    <RowMultiplier multiplier={mult} setMultiplier={(v) => updateItem(item.id, 'multiplier', v)} />
-                    
-                    <div className="flex-1 min-w-0">
-                        {isPack ? (
-                            <select disabled={item.isLocked} value={item.packId} onChange={(e) => updateItem(item.id, 'packId', e.target.value)} className={`w-full bg-transparent text-[14px] font-bold ${item.isLocked ? 'text-slate-500' : 'text-slate-800'} outline-none truncate appearance-none`}>
-                                {packSizes.map(p => <option key={p.id} value={p.id}>{p.name} ({p.size})</option>)}
-                            </select>
-                        ) : (
-                            <span className={`w-full text-[14px] font-bold truncate flex items-center gap-1 ${item.isLocked ? 'text-slate-500' : (isOverload ? 'text-rose-600' : 'text-orange-600')}`}>
-                                Hàng Lẻ {isOverload && <Icon name="alert-triangle" size={14}/>}
-                            </span>
-                        )}
+                <div className={`flex flex-col gap-3 p-3.5 rounded-[28px] border transition-colors shadow-sm ${item.isLocked ? 'bg-slate-100 border-slate-200 opacity-60' : (isWaiting ? 'bg-white border-amber-300 shadow-amber-100/50' : 'bg-white border-transparent')}`}>
+                    <div className="flex justify-between items-center gap-2">
+                        <RowMultiplier multiplier={mult} setMultiplier={(v) => updateItem(item.id, 'multiplier', v)} packName={packName} />
+                        
+                        <div className="flex-1">
+                            {isPack ? (
+                                <select disabled={item.isLocked} value={item.packId} onChange={(e) => updateItem(item.id, 'packId', e.target.value)} className={`w-full bg-transparent text-[16px] font-bold ${item.isLocked ? 'text-slate-500' : 'text-slate-800'} outline-none appearance-none`}>
+                                    {packSizes.map(p => <option key={p.id} value={p.id}>{p.name} ({formatVN(p.size)})</option>)}
+                                </select>
+                            ) : (
+                                <span className={`text-[16px] font-bold ${item.isLocked ? 'text-slate-500' : 'text-orange-600'}`}>Hàng Lẻ</span>
+                            )}
+                        </div>
+                        
+                        <div className="text-right">
+                            <span className={`text-[18px] font-black ${isPack ? 'text-blue-600' : 'text-orange-600'}`}>{itemTotal === 0 ? "0" : formatVN(itemTotal)}</span>
+                        </div>
                     </div>
                     
-                    <div className={`flex items-center rounded-xl overflow-hidden border ${item.isLocked ? 'border-transparent' : (isOverload ? 'border-rose-300 bg-white' : 'border-slate-300 bg-white')} shrink-0 h-10`}>
-                        <button disabled={item.isLocked} onClick={() => updateItem(item.id, 'qty', Math.max(0, qtyNum - 1))} className="w-10 h-full flex items-center justify-center text-slate-500 bg-slate-50 active:bg-slate-200 border-r border-slate-200 font-bold text-lg">-</button>
-                        <input 
-                            disabled={item.isLocked} 
-                            type="text" inputMode="numeric" pattern="[0-9]*" 
-                            value={item.qty===0?'':item.qty} 
-                            onChange={(e) => updateItem(item.id, 'qty', parseInt(e.target.value.replace(/[^0-9]/g, ''))||0)}
-                            onFocus={(e) => e.target.select()}
-                            placeholder="0"
-                            className={`w-14 h-full text-center text-[15px] font-black bg-transparent outline-none p-0 ${isPack ? 'text-slate-800' : (isOverload ? 'text-rose-600' : 'text-orange-600')}`} 
-                        />
-                        <button disabled={item.isLocked} onClick={() => updateItem(item.id, 'qty', qtyNum + 1)} className="w-10 h-full flex items-center justify-center text-slate-500 bg-slate-50 active:bg-slate-200 border-l border-slate-200 font-bold text-lg">+</button>
-                    </div>
-
-                    <div className="w-14 flex flex-col items-end justify-center shrink-0">
-                        <span className={`text-[13px] font-black truncate ${isPack ? 'text-blue-600' : (isOverload ? 'text-rose-600' : 'text-orange-600')}`}>{itemTotal}</span>
-                        <div className="flex gap-1 mt-0.5">
-                            <button onClick={() => updateItem(item.id, 'isLocked', !item.isLocked)} className="text-slate-300 active:scale-90"><Icon name={item.isLocked ? 'lock' : 'unlock'} size={14} color={item.isLocked ? '#94a3b8' : 'currentColor'} /></button>
-                            <button onClick={() => removeItem(item.id)} className="text-slate-300 hover:text-rose-400 active:scale-90"><Icon name="trash-2" size={14}/></button>
+                    <div className="flex justify-between items-center">
+                        <div className={`flex items-center rounded-[20px] overflow-hidden bg-slate-100 h-12 w-[140px] ${item.isLocked ? 'opacity-50 pointer-events-none' : ''}`}>
+                            <button onClick={() => updateItem(item.id, 'qty', Math.max(0, qtyNum - 1))} className="w-12 h-full flex items-center justify-center text-slate-600 hover:bg-slate-200 active:bg-slate-300 font-black text-xl">-</button>
+                            <input 
+                                type="text" inputMode="numeric" pattern="[0-9]*" 
+                                value={item.qty===0?'':formatVN(item.qty)} 
+                                onChange={(e) => updateItem(item.id, 'qty', parseVN(e.target.value))}
+                                onFocus={(e) => e.target.select()}
+                                placeholder="0"
+                                className="flex-1 w-full h-full text-center text-[18px] font-black bg-white outline-none p-0" 
+                            />
+                            <button onClick={() => updateItem(item.id, 'qty', qtyNum + 1)} className="w-12 h-full flex items-center justify-center text-slate-600 hover:bg-slate-200 active:bg-slate-300 font-black text-xl">+</button>
+                        </div>
+                        
+                        <div className="flex gap-2">
+                            <button onClick={() => updateItem(item.id, 'isLocked', !item.isLocked)} className={`w-12 h-12 rounded-[18px] flex items-center justify-center transition-colors ${item.isLocked ? 'bg-amber-100 text-amber-600' : 'bg-slate-50 text-slate-400 active:bg-slate-100'}`}><Icon name={item.isLocked ? 'lock' : 'unlock'} size={18} /></button>
+                            <button onClick={() => removeItem(item.id)} className="w-12 h-12 rounded-[18px] flex items-center justify-center bg-rose-50 text-rose-500 active:bg-rose-100 transition-colors"><Icon name="trash-2" size={18}/></button>
                         </div>
                     </div>
                 </div>
             );
         }
 
+        // --- COMPONENT MODAL LỊCH SỬ CHUNG ---
+        const HistoryModal = ({ type, historyList, close, loadHistory, deleteHistory }) => (
+            <div className="fixed inset-0 bg-slate-900/40 z-[100] flex flex-col fade-in">
+                <div className="bg-white pt-[env(safe-area-inset-top,20px)] pb-2 px-4 flex justify-between items-center border-b border-slate-200 shadow-sm">
+                    <h3 className="font-bold text-slate-800 text-lg">Lịch sử {type}</h3>
+                    <button onClick={close} className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center"><Icon name="x" size={18}/></button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-4 bg-[#F2F2F7] space-y-4 pb-[calc(env(safe-area-inset-bottom,20px)+20px)]">
+                    {historyList.length === 0 ? <p className="text-center text-slate-500 mt-10 font-medium">Chưa có dữ liệu lịch sử.</p> : historyList.map(entry => (
+                        <div key={entry.id} className="bg-white p-4 rounded-[24px] shadow-sm flex flex-col gap-3">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <p className="font-bold text-slate-800 text-[16px]">{entry.name}</p>
+                                    <p className="text-[11px] text-slate-400 font-medium mt-0.5">{entry.date}</p>
+                                </div>
+                                <span className="text-[13px] font-black text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full">Tổng: {formatVN(entry.total)}</span>
+                            </div>
+                            <div className="bg-slate-50 p-3 rounded-[16px] text-[13px] font-mono font-medium text-slate-600 leading-relaxed">
+                                {entry.formulaStr}
+                            </div>
+                            <div className="flex gap-2 pt-1">
+                                <button onClick={() => loadHistory(entry)} className="flex-1 py-3 bg-slate-100 text-slate-700 font-bold rounded-[16px] active:bg-slate-200 flex items-center justify-center gap-1.5"><Icon name="download" size={16}/> Mở lại</button>
+                                <button onClick={() => deleteHistory(entry.id)} className="w-14 bg-rose-50 text-rose-500 rounded-[16px] active:bg-rose-100 flex items-center justify-center"><Icon name="trash-2" size={18}/></button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+
         // --- TAB 3: SETTINGS ---
-        function Tab3Settings({ packSizes, setPackSizes, hasUpdate, setHasUpdate }) {
+        function Tab3Settings({ packSizes, setPackSizes }) {
             const [newName, setNewName] = useState('');
             const [newSize, setNewSize] = useState('');
-            const [updateMsg, setUpdateMsg] = useState('');
+            const [showUpdate, setShowUpdate] = useState(true);
             
             const handleAdd = () => {
                 if (newName && newSize) {
-                    setPackSizes([...packSizes, { id: 'p' + Date.now(), name: newName, size: parseInt(newSize.replace(/[^0-9]/g, '')) }]);
+                    setPackSizes([...packSizes, { id: 'p' + Date.now(), name: newName, size: parseVN(newSize) }]);
                     setNewName(''); setNewSize('');
                 }
             };
-
-            const removePack = (id) => { if (packSizes.length > 1) setPackSizes(packSizes.filter(p => p.id !== id)); };
-            const handleUpdate = () => {
-                setUpdateMsg("Đang đồng bộ...");
-                setTimeout(() => { setHasUpdate(false); setUpdateMsg("Đã khôi phục các tính năng (Công cụ nhập/Gợi ý)"); }, 1500);
-            };
-
             return (
-                <div className="p-4 space-y-4 fade-in">
-                    {/* BẢNG CẬP NHẬT ĐÃ ĐƯỢC KHÔI PHỤC TẠI ĐÂY */}
-                    {hasUpdate ? (
-                        <div className="bg-gradient-to-r from-teal-500 to-emerald-600 p-5 rounded-3xl shadow-md text-white flex flex-col gap-3 relative overflow-hidden">
-                            <div className="absolute -right-4 -top-4 opacity-20"><Icon name="rocket" size={100}/></div>
-                            <div className="z-10">
-                                <h3 className="font-bold text-lg">Bản cập nhật tính năng PRO!</h3>
-                                <p className="text-teal-50 text-sm mt-1">Đã khôi phục lại <b>Công cụ nhập Tính ra tổng</b>, <b>Bảng gợi ý hộp</b> và <b>Không gộp hộp tự động</b>.</p>
-                            </div>
-                            {updateMsg ? (
-                                <div className="z-10 mt-2 bg-white/20 text-white p-3 rounded-xl text-sm font-medium animate-pulse flex items-center gap-2"><Icon name="download" size={16} /> {updateMsg}</div>
-                            ) : (
-                                <button onClick={handleUpdate} className="z-10 mt-2 bg-white text-emerald-700 py-3 px-4 rounded-xl font-bold flex items-center justify-center gap-2 shadow-sm active:scale-95"><Icon name="download" size={18} /> Cập nhật ngay</button>
-                            )}
+                <div className="p-4 space-y-5 fade-in">
+                    {/* THÔNG BÁO CẬP NHẬT ĐÃ ĐƯỢC KHÔI PHỤC VÀ LÀM ĐẸP */}
+                    {showUpdate && (
+                        <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-5 rounded-[28px] shadow-lg text-white flex flex-col gap-2 relative overflow-hidden">
+                            <div className="absolute -right-4 -bottom-4 opacity-10"><Icon name="rocket" size={120}/></div>
+                            <h3 className="font-black text-[18px] z-10">Bản Cập Nhật V14.0 Pro</h3>
+                            <p className="text-blue-50 text-[12px] z-10 leading-relaxed font-medium">Giao diện chuẩn Apple, không đè lấp. Định dạng số 12.000 mượt mà. Hệ số x1 popup thông minh.</p>
+                            <button onClick={() => setShowUpdate(false)} className="mt-2 text-[12px] font-bold bg-white text-indigo-600 px-4 py-2 rounded-full w-fit z-10 shadow-sm active:scale-95">Tuyệt vời!</button>
                         </div>
-                    ) : updateMsg && (
-                        <div className="bg-green-100 text-green-700 p-4 rounded-2xl flex items-center gap-3 font-medium"><Icon name="check-circle-2" size={24} /> {updateMsg}</div>
                     )}
 
-                    <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-5">
-                        <h3 className="font-bold text-slate-800 mb-4 text-sm uppercase tracking-wide">Cấu hình Hộp / Thùng</h3>
+                    <div className="bg-white rounded-[32px] shadow-sm p-5">
+                        <h3 className="font-bold text-slate-400 text-[12px] uppercase tracking-widest mb-4">Cấu hình Hộp / Thùng</h3>
                         <div className="space-y-3">
                             {packSizes.map(pack => (
-                                <div key={pack.id} className="flex justify-between items-center bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                                    <div><p className="font-bold text-slate-800 text-[15px]">{pack.name}</p><p className="text-[12px] text-blue-600 font-bold mt-0.5">1 hộp = {pack.size}</p></div>
-                                    <button onClick={() => removePack(pack.id)} className="text-slate-400 p-2.5 bg-white rounded-xl shadow-sm border border-slate-100 active:scale-90" disabled={packSizes.length <= 1}><Icon name="trash-2" size={16} /></button>
+                                <div key={pack.id} className="flex justify-between items-center bg-slate-50 p-3.5 rounded-[20px] border border-slate-100">
+                                    <div>
+                                        <p className="font-bold text-slate-800 text-[16px]">{pack.name}</p>
+                                        <p className="text-[12px] text-blue-600 font-bold mt-1">1 hộp = {formatVN(pack.size)}</p>
+                                    </div>
+                                    <button onClick={() => setPackSizes(packSizes.filter(p => p.id !== pack.id))} className="w-10 h-10 bg-white text-rose-500 rounded-full shadow-sm flex items-center justify-center active:scale-90" disabled={packSizes.length <= 1}><Icon name="trash-2" size={16} /></button>
                                 </div>
                             ))}
                         </div>
-                        <div className="mt-5 pt-5 border-t border-slate-100">
-                            <div className="flex gap-2 h-12">
-                                <input type="text" placeholder="Tên Ký hiệu" value={newName} onChange={e => setNewName(e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 text-sm outline-none font-semibold" />
-                                <input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="S.Lượng" value={newSize} onChange={e => setNewSize(e.target.value.replace(/[^0-9]/g, ''))} className="w-20 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none text-center font-bold" />
-                                <button onClick={handleAdd} className="bg-slate-800 text-white px-4 rounded-xl active:scale-95"><Icon name="plus" size={20}/></button>
+                        <div className="mt-6 pt-6 border-t border-slate-100">
+                            <div className="flex gap-2">
+                                <input type="text" placeholder="Tên Hộp" value={newName} onChange={e => setNewName(e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-[16px] px-4 h-12 text-[14px] outline-none font-semibold text-slate-800 focus:bg-white transition-colors" />
+                                <input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="S.Lượng" value={newSize===0?'':formatVN(newSize)} onChange={e => setNewSize(parseVN(e.target.value))} className="w-24 bg-slate-50 border border-slate-200 rounded-[16px] h-12 text-[15px] outline-none text-center font-black text-slate-800 focus:bg-white transition-colors" />
+                                <button onClick={handleAdd} className="w-14 h-12 bg-slate-800 text-white rounded-[16px] active:scale-95 flex items-center justify-center"><Icon name="plus" size={20}/></button>
                             </div>
                         </div>
                     </div>
@@ -742,3 +660,5 @@
     </script>
 </body>
 </html>
+
+
