@@ -24,14 +24,10 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
-        :root {
-            --safe-bottom: env(safe-area-inset-bottom, 20px);
-            --safe-top: env(safe-area-inset-top, 20px);
-        }
         body { 
             margin: 0; 
             font-family: 'Inter', -apple-system, sans-serif; 
-            background-color: #F2F2F7; /* Chuẩn màu nền iOS */
+            background-color: #F2F2F7; /* Màu nền chuẩn iOS */
             -webkit-tap-highlight-color: transparent;
             user-select: none;
         }
@@ -39,7 +35,7 @@
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         
-        .fade-in { animation: fadeIn 0.25s ease-out; }
+        .fade-in { animation: fadeIn 0.2s ease-out; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         
         .slide-up-modal { animation: slideUpModal 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
@@ -47,8 +43,8 @@
 
         input { border-radius: 0; -webkit-appearance: none; appearance: none; }
         
-        /* Padding bù cho thanh tab bar ở dưới */
-        .content-area { padding-bottom: calc(var(--safe-bottom) + 100px); }
+        /* Padding đáy siêu an toàn để không bị thanh menu che */
+        .content-area { padding-bottom: calc(env(safe-area-inset-bottom, 20px) + 110px); }
     </style>
 </head>
 <body>
@@ -57,7 +53,7 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
 
-        // --- HÀM FORMAT SỐ (12.000) ---
+        // --- HÀM FORMAT SỐ ---
         const formatVN = (num) => {
             if (num === null || num === undefined || isNaN(num) || num === 0) return "";
             return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
@@ -84,11 +80,13 @@
 
         function App() {
             const [activeTab, setActiveTab] = useState('tab2');
+            const [hasUpdate, setHasUpdate] = useState(true); // Biến trạng thái cập nhật
             const [packSizes, setPackSizes] = useState(() => {
                 const saved = localStorage.getItem('packSizes');
                 return saved ? JSON.parse(saved) : [
                     { id: 'p1', name: 'K51 cốp', size: 2688 },
-                    { id: 'p2', name: 'K56', size: 700 }
+                    { id: 'p2', name: 'K56', size: 700 },
+                    { id: 'p3', name: 'K53', size: 220 }
                 ];
             });
 
@@ -106,8 +104,8 @@
                     <div className="w-full h-full md:max-w-[428px] bg-[#F2F2F7] md:rounded-[40px] md:shadow-2xl overflow-hidden flex flex-col relative md:border-[8px] border-slate-800">
                         
                         {/* Header iOS Style */}
-                        <div className="bg-[#F2F2F7]/90 backdrop-blur-md pt-[env(safe-area-inset-top,20px)] md:pt-6 pb-2 px-6 z-20 flex justify-center items-center shrink-0 border-b border-gray-200">
-                            <h1 className="text-[18px] font-bold text-slate-900 tracking-tight">
+                        <div className="bg-[#F2F2F7] pt-[env(safe-area-inset-top,20px)] md:pt-6 pb-2 px-6 z-20 flex justify-center items-center shrink-0">
+                            <h1 className="text-[17px] font-black text-slate-800 tracking-tight">
                                 {activeTab === 'tab1' && 'Tính Xuôi (Kho)'}
                                 {activeTab === 'tab2' && 'Chia Ngược (Đóng gói)'}
                                 {activeTab === 'tab3' && 'Cài Đặt Hệ Thống'}
@@ -116,24 +114,24 @@
 
                         {/* Toast */}
                         {toastMsg && (
-                            <div className="absolute top-[env(safe-area-inset-top,60px)] left-1/2 transform -translate-x-1/2 z-[100] bg-slate-800 text-white px-6 py-3 rounded-full shadow-2xl text-sm font-semibold fade-in flex items-center gap-2 whitespace-nowrap">
-                                <Icon name="check-circle-2" size={18}/> {toastMsg}
+                            <div className="absolute top-[env(safe-area-inset-top,60px)] left-1/2 transform -translate-x-1/2 z-[100] bg-slate-800 text-white px-5 py-2.5 rounded-full shadow-xl text-[13px] font-semibold fade-in flex items-center gap-2 whitespace-nowrap">
+                                <Icon name="check-circle-2" size={16}/> {toastMsg}
                             </div>
                         )}
 
-                        {/* Nội dung chính cuộn */}
-                        <div className="flex-1 overflow-y-auto content-area hide-scrollbar">
+                        {/* Nội dung chính */}
+                        <div className="flex-1 overflow-y-auto content-area hide-scrollbar px-4 pt-1">
                             {activeTab === 'tab1' && <Tab1Calculator packSizes={packSizes} showToast={showToast} />}
                             {activeTab === 'tab2' && <Tab2Divider packSizes={packSizes} showToast={showToast} />}
-                            {activeTab === 'tab3' && <Tab3Settings packSizes={packSizes} setPackSizes={setPackSizes} />}
+                            {activeTab === 'tab3' && <Tab3Settings packSizes={packSizes} setPackSizes={setPackSizes} hasUpdate={hasUpdate} setHasUpdate={setHasUpdate} />}
                         </div>
 
-                        {/* Thanh Tab Bar chuẩn Apple */}
-                        <div className="absolute bottom-0 w-full z-30 pb-[env(safe-area-inset-bottom,0px)] bg-white/80 backdrop-blur-xl border-t border-gray-200">
-                            <div className="flex justify-around items-center pt-2 pb-1">
+                        {/* Thanh Tab Bar: Đẩy cao lên 16px so với safe-area để tránh nút vuốt */}
+                        <div className="absolute bottom-0 left-0 w-full z-30 pb-[calc(env(safe-area-inset-bottom,16px)+16px)] pointer-events-none">
+                            <div className="bg-white/95 backdrop-blur-xl rounded-[28px] shadow-[0_8px_30px_rgba(0,0,0,0.08)] border border-slate-200/50 flex justify-around p-1.5 mx-4 pointer-events-auto">
                                 <NavButton icon="calculator" label="Tính Xuôi" isActive={activeTab === 'tab1'} onClick={() => setActiveTab('tab1')} />
                                 <NavButton icon="package-open" label="Chia Ngược" isActive={activeTab === 'tab2'} onClick={() => setActiveTab('tab2')} />
-                                <NavButton icon="settings" label="Cài Đặt" isActive={activeTab === 'tab3'} onClick={() => setActiveTab('tab3')} />
+                                <NavButton icon="settings" label="Cài Đặt" isActive={activeTab === 'tab3'} onClick={() => setActiveTab('tab3')} hasBadge={hasUpdate} />
                             </div>
                         </div>
                     </div>
@@ -141,16 +139,18 @@
             );
         }
 
-        function NavButton({ icon, label, isActive, onClick }) {
+        function NavButton({ icon, label, isActive, onClick, hasBadge }) {
             return (
-                <button onClick={onClick} className={`flex flex-col items-center justify-center w-24 h-12 transition-colors ${isActive ? 'text-blue-600' : 'text-slate-400'}`}>
-                    <Icon name={icon} size={24} className={isActive ? "fill-blue-100" : ""} color="currentColor" />
+                <button onClick={onClick} className={`flex flex-col items-center justify-center w-[72px] h-[52px] relative transition-colors ${isActive ? 'text-blue-600' : 'text-slate-400'}`}>
+                    <Icon name={icon} size={22} color="currentColor" />
                     <span className={`text-[10px] mt-1 tracking-wide ${isActive ? 'font-bold' : 'font-medium'}`}>{label}</span>
+                    {/* Dấu chấm đỏ thông báo cập nhật */}
+                    {hasBadge && <div className="absolute top-1 right-5 w-2 h-2 bg-red-500 border-2 border-white rounded-full"></div>}
                 </button>
             );
         }
 
-        // --- COMPONENT NHẬP HỆ SỐ (POPUP PRO - Không đè UI) ---
+        // --- COMPONENT NHẬP HỆ SỐ ---
         const RowMultiplier = ({ multiplier, setMultiplier, packName }) => {
             const [isOpen, setIsOpen] = useState(false);
             const [tempVal, setTempVal] = useState(multiplier);
@@ -165,34 +165,32 @@
                 <>
                     <button 
                         onClick={() => { setTempVal(formatVN(multiplier)); setIsOpen(true); }}
-                        className={`w-[42px] h-[42px] shrink-0 rounded-2xl flex flex-col items-center justify-center transition-colors shadow-sm ${multiplier > 1 ? 'bg-indigo-500 text-white' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}
+                        className="w-10 h-10 shrink-0 rounded-[12px] bg-slate-50 border border-slate-200 flex flex-col items-center justify-center active:bg-slate-100"
                     >
-                        <Icon name="copy" size={14} className={multiplier > 1 ? "opacity-80 mb-0.5" : "mb-0.5"}/>
-                        <span className="text-[10px] font-bold leading-none">x{formatVN(multiplier)}</span>
+                        <Icon name="copy" size={14} className="mb-0.5 text-slate-400"/>
+                        <span className="text-[10px] font-black leading-none text-slate-500">x{formatVN(multiplier)}</span>
                     </button>
 
                     {isOpen && (
                         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 fade-in">
-                            <div className="bg-white rounded-[28px] p-6 w-[320px] shadow-2xl slide-up-modal flex flex-col gap-4">
+                            <div className="bg-white rounded-[28px] p-6 w-[300px] shadow-2xl slide-up-modal flex flex-col gap-4">
                                 <div className="text-center">
-                                    <h3 className="text-lg font-bold text-slate-800">Nhập Hệ Số (Lốc/Kiện)</h3>
-                                    <p className="text-xs text-slate-500 mt-1">Áp dụng cho: <b className="text-blue-600">{packName}</b></p>
+                                    <h3 className="text-[17px] font-bold text-slate-800">Nhập Hệ Số (Kiện)</h3>
+                                    <p className="text-[12px] text-slate-500 mt-1">Áp dụng: <b className="text-blue-600">{packName}</b></p>
                                 </div>
-                                
-                                <div className="flex bg-slate-100 rounded-[20px] p-2 items-center">
-                                    <div className="w-12 text-center text-slate-400 font-black text-xl">x</div>
+                                <div className="flex bg-slate-100 rounded-[20px] p-1.5 items-center border border-slate-200">
+                                    <div className="w-10 text-center text-slate-400 font-black text-lg">x</div>
                                     <input 
                                         type="text" inputMode="numeric" pattern="[0-9]*" 
                                         value={tempVal} 
                                         onChange={(e) => setTempVal(formatVN(parseVN(e.target.value)))}
                                         onFocus={(e) => e.target.select()}
-                                        className="flex-1 bg-white rounded-[16px] h-14 text-center font-black text-2xl text-indigo-600 outline-none shadow-sm"
+                                        className="flex-1 bg-white rounded-[16px] h-12 text-center font-black text-[22px] text-blue-600 outline-none shadow-sm"
                                     />
                                 </div>
-
-                                <div className="flex gap-2 mt-2">
-                                    <button onClick={() => setIsOpen(false)} className="flex-1 py-3.5 bg-slate-100 text-slate-600 font-bold rounded-[16px]">Hủy</button>
-                                    <button onClick={apply} className="flex-1 py-3.5 bg-indigo-600 text-white font-bold rounded-[16px] shadow-md active:bg-indigo-700">Xác nhận</button>
+                                <div className="flex gap-2 mt-1">
+                                    <button onClick={() => setIsOpen(false)} className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold text-[14px] rounded-[16px]">Hủy</button>
+                                    <button onClick={apply} className="flex-1 py-3 bg-blue-600 text-white font-bold text-[14px] rounded-[16px] shadow-md active:bg-blue-700">Xác nhận</button>
                                 </div>
                             </div>
                         </div>
@@ -242,39 +240,38 @@
             const total = useMemo(() => items.reduce((sum, item) => sum + (item.type === 'pack' ? (Number(item.qty) * (Number(item.multiplier)||1) * (packSizes.find(x => x.id === item.packId)?.size || 0)) : (Number(item.qty) * (Number(item.multiplier)||1))), 0), [items, packSizes]);
 
             const handleSave = () => {
-                if (!saveName.trim()) { showToast("Vui lòng nhập tên để lưu!"); return; }
+                if (!saveName.trim()) { showToast("Nhập tên để lưu!"); return; }
                 const formula = generateFormulaString(items, packSizes);
                 const finalStr = formula ? `${formula} = ${formatVN(total)}` : '0';
                 setHistoryList([{ id: Date.now(), name: saveName, date: new Date().toLocaleString('vi-VN'), data: items, total, formulaStr: finalStr }, ...historyList]);
-                setSaveName(''); showToast("Đã lưu thành công");
+                setSaveName(''); showToast("Đã lưu đơn");
             };
 
             const loadHistory = (entry) => { setItems(entry.data); setShowHistory(false); showToast(`Đã tải: ${entry.name}`); };
             const deleteHistory = (id) => setHistoryList(historyList.filter(h => h.id !== id));
 
             return (
-                <div className="p-4 space-y-5 fade-in">
-                    {/* Thẻ Card Trắng Lớn (Chuẩn Apple Health style) */}
-                    <div className="bg-white rounded-[32px] p-5 shadow-[0_4px_24px_rgba(0,0,0,0.04)] flex flex-col gap-5 relative">
-                        <div className="flex justify-between items-start">
+                <div className="space-y-4 fade-in">
+                    <div className="bg-slate-900 rounded-[24px] p-4 shadow-sm flex flex-col gap-3 relative overflow-hidden">
+                        <div className="absolute -right-4 -top-4 opacity-[0.03] pointer-events-none"><Icon name="calculator" size={140} /></div>
+                        <div className="flex justify-between items-start z-10">
                             <div className="flex flex-col">
-                                <span className="text-[12px] font-bold text-slate-400 uppercase tracking-widest mb-1">Tổng Thành Phẩm</span>
-                                <span className="text-[44px] leading-none font-black text-blue-600 truncate max-w-[250px]">{total === 0 ? "0" : formatVN(total)}</span>
+                                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1">Tổng Thành Phẩm</span>
+                                <span className="text-[38px] leading-none font-black text-white truncate max-w-[250px]">{total === 0 ? "0" : formatVN(total)}</span>
                             </div>
-                            <button onClick={clearAll} className="w-10 h-10 bg-slate-100 text-slate-500 rounded-full flex items-center justify-center active:bg-slate-200"><Icon name="rotate-ccw" size={18}/></button>
+                            <button onClick={clearAll} className="w-10 h-10 bg-slate-800 text-slate-300 rounded-full flex items-center justify-center active:bg-slate-700"><Icon name="rotate-ccw" size={18}/></button>
                         </div>
                         
-                        {/* Thanh công cụ lưu */}
-                        <div className="flex bg-slate-50 rounded-[20px] p-1.5 border border-slate-100">
-                            <input type="text" placeholder="Tên đơn hàng..." value={saveName} onChange={(e) => setSaveName(e.target.value)} className="flex-1 px-3 bg-transparent outline-none font-semibold text-[14px] text-slate-800" />
-                            <button onClick={handleSave} className="w-12 h-10 bg-blue-600 text-white rounded-[16px] shadow-sm flex items-center justify-center active:scale-95 transition-transform"><Icon name="save" size={18}/></button>
-                            <button onClick={() => setShowHistory(true)} className="w-12 h-10 bg-white text-slate-600 rounded-[16px] shadow-sm ml-1 border border-slate-200 flex items-center justify-center active:scale-95 transition-transform"><Icon name="history" size={18}/></button>
+                        <div className="flex bg-slate-800 rounded-[16px] p-1 border border-slate-700 z-10">
+                            <input type="text" placeholder="Tên đơn hàng..." value={saveName} onChange={(e) => setSaveName(e.target.value)} className="flex-1 px-3 bg-transparent outline-none font-medium text-[13px] text-white placeholder-slate-400" />
+                            <button onClick={handleSave} className="w-12 h-10 bg-blue-600 text-white rounded-[12px] shadow-sm flex items-center justify-center active:scale-95 transition-transform"><Icon name="save" size={16}/></button>
+                            <button onClick={() => setShowHistory(true)} className="w-12 h-10 bg-slate-700 text-slate-300 rounded-[12px] shadow-sm ml-1 flex items-center justify-center active:scale-95 transition-transform"><Icon name="history" size={16}/></button>
                         </div>
                     </div>
 
                     <div className="flex gap-3">
-                        <button onClick={() => addItem('pack')} className="flex-1 py-4 bg-white shadow-sm text-blue-600 text-[14px] font-bold rounded-[24px] flex items-center justify-center gap-2 active:bg-slate-50 transition-colors"><Icon name="box" size={18}/> Thêm Hộp</button>
-                        <button onClick={() => addItem('single')} className="flex-1 py-4 bg-white shadow-sm text-orange-600 text-[14px] font-bold rounded-[24px] flex items-center justify-center gap-2 active:bg-slate-50 transition-colors"><Icon name="layers" size={18}/> Thêm Lẻ</button>
+                        <button onClick={() => addItem('pack')} className="flex-1 py-3 bg-white shadow-sm text-blue-600 text-[13px] font-bold rounded-[20px] flex items-center justify-center gap-2 active:bg-slate-50 border border-slate-100"><Icon name="box" size={16}/> Thêm Hộp</button>
+                        <button onClick={() => addItem('single')} className="flex-1 py-3 bg-white shadow-sm text-orange-600 text-[13px] font-bold rounded-[20px] flex items-center justify-center gap-2 active:bg-slate-50 border border-slate-100"><Icon name="layers" size={16}/> Thêm Lẻ</button>
                     </div>
 
                     <div className="space-y-3">
@@ -334,17 +331,17 @@
             const clearAll = () => {
                 setTargetTotal(0);
                 setAllocations([{ id: Date.now(), type: 'pack', packId: packSizes[0]?.id, qty: 0, multiplier: 1, isLocked: false }]);
-                showToast("Đã làm mới");
+                showToast("Đã dọn sạch");
             };
 
             const handleSave = () => {
-                if (!saveName.trim()) { showToast("Vui lòng nhập tên để lưu!"); return; }
+                if (!saveName.trim()) { showToast("Nhập tên để lưu!"); return; }
                 const formula = generateFormulaString(allocations, packSizes);
                 let finalStr = formula ? `${formula} = ${formatVN(currentSum)}` : '0';
                 if(unallocated !== 0) finalStr += ` (Dư: ${formatVN(unallocated)})`;
 
                 setHistoryList([{ id: Date.now(), name: saveName, date: new Date().toLocaleString('vi-VN'), data: allocations, total: targetTotal, formulaStr: finalStr }, ...historyList]);
-                setSaveName(''); showToast("Đã lưu thành công");
+                setSaveName(''); showToast("Đã lưu đơn");
             };
 
             const loadHistory = (entry) => { setAllocations(entry.data); setTargetTotal(entry.total); setShowHistory(false); showToast(`Đã tải: ${entry.name}`); };
@@ -395,20 +392,20 @@
                 if(q > 0) {
                     setAllocations([...allocations, { id: Date.now() + Math.random(), type: 'pack', packId: pack.id, qty: q, multiplier: 1, isLocked: false }]);
                 } else {
-                    showToast("Số dư không đủ 1 hộp!");
+                    showToast("Dư quá ít!");
                 }
                 setShowSuggestModal(false);
             };
 
             return (
-                <div className="p-4 space-y-5 fade-in">
-                    {/* Thẻ Nhập Tổng Cao Cấp */}
-                    <div className="bg-white rounded-[32px] p-5 shadow-[0_4px_24px_rgba(0,0,0,0.04)] flex flex-col gap-4">
+                <div className="space-y-4 fade-in">
+                    {/* Thẻ Nhập Tổng Cần Chia */}
+                    <div className="bg-white rounded-[28px] p-4 shadow-sm border border-slate-100 flex flex-col gap-3">
                         <div className="flex justify-between items-start">
                             <div className="flex flex-col flex-1 pr-2">
-                                <span className="text-[12px] font-bold text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-2">
-                                    Tổng cần chia
-                                    <button onClick={() => setShowInputHelper(!showInputHelper)} className="text-[10px] text-blue-500 font-bold bg-blue-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-0.5 flex items-center gap-1.5">
+                                    Tổng Cần Chia
+                                    <button onClick={() => setShowInputHelper(!showInputHelper)} className="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full flex items-center gap-0.5 font-bold">
                                         <Icon name={showInputHelper ? "chevron-up" : "plus"} size={10}/> Kho
                                     </button>
                                 </span>
@@ -418,18 +415,18 @@
                                     onChange={(e) => { setTargetTotal(parseVN(e.target.value)); setShowInputHelper(false); }} 
                                     onFocus={(e) => e.target.select()}
                                     placeholder="0"
-                                    className="w-full text-left text-[44px] font-black text-blue-600 outline-none bg-transparent"
+                                    className="w-full text-left text-[38px] leading-tight font-black text-blue-600 outline-none bg-transparent truncate"
                                 />
                             </div>
                             <button onClick={clearAll} className="w-10 h-10 bg-slate-100 text-slate-500 rounded-full flex items-center justify-center shrink-0 active:bg-slate-200"><Icon name="rotate-ccw" size={18}/></button>
                         </div>
                         
-                        {/* Công cụ tính kho mở rộng */}
+                        {/* Công cụ tính kho rút gọn */}
                         {showInputHelper && (
-                            <div className="bg-slate-50 rounded-[20px] p-3 space-y-2 border border-slate-100 fade-in">
+                            <div className="bg-slate-50 rounded-[16px] p-3 space-y-2 border border-slate-100 fade-in">
                                 {helperPacks.map(hp => (
                                     <div key={hp.id} className="flex gap-2">
-                                        <select value={hp.packId} onChange={(e) => setHelperPacks(helperPacks.map(p => p.id === hp.id ? {...p, packId: e.target.value} : p))} className="flex-1 bg-white border border-slate-200 shadow-sm rounded-[16px] text-[14px] font-bold text-slate-700 px-3 outline-none">
+                                        <select value={hp.packId} onChange={(e) => setHelperPacks(helperPacks.map(p => p.id === hp.id ? {...p, packId: e.target.value} : p))} className="flex-1 bg-white border border-slate-200 shadow-sm rounded-[12px] text-[13px] font-bold text-slate-700 px-3 outline-none h-10">
                                             {packSizes.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                                         </select>
                                         <input 
@@ -437,53 +434,53 @@
                                             value={hp.qty===0?'':formatVN(hp.qty)} 
                                             onChange={(e)=>setHelperPacks(helperPacks.map(p => p.id === hp.id ? {...p, qty: parseVN(e.target.value)} : p))} 
                                             onFocus={(e) => e.target.select()}
-                                            className="w-20 bg-white border border-slate-200 shadow-sm rounded-[16px] text-center font-bold text-[15px] text-slate-800 outline-none py-2.5" 
+                                            className="w-16 bg-white border border-slate-200 shadow-sm rounded-[12px] text-center font-bold text-[14px] text-slate-800 outline-none h-10" 
                                         />
                                     </div>
                                 ))}
-                                <div className="flex gap-2 mt-2 items-center">
-                                    <button onClick={() => setHelperPacks([...helperPacks, { id: Date.now(), packId: packSizes[0]?.id, qty: 0 }])} className="text-[12px] text-blue-600 bg-blue-50 py-2 px-3 rounded-[12px] font-bold active:bg-blue-100">Thêm Hộp</button>
+                                <div className="flex gap-2 mt-1 items-center">
+                                    <button onClick={() => setHelperPacks([...helperPacks, { id: Date.now(), packId: packSizes[0]?.id, qty: 0 }])} className="text-[11px] text-blue-600 bg-blue-50 py-2 px-3 rounded-[10px] font-bold active:bg-blue-100">Thêm Hộp</button>
                                     <div className="flex-1 flex items-center gap-2 border-l border-slate-200 pl-2">
-                                        <span className="text-[11px] text-slate-500 font-bold uppercase">Lẻ:</span>
+                                        <span className="text-[10px] text-slate-500 font-bold uppercase">Lẻ:</span>
                                         <input 
                                             type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0"
                                             value={helperSingles===0?'':formatVN(helperSingles)} 
                                             onChange={(e)=>setHelperSingles(parseVN(e.target.value))} 
                                             onFocus={(e) => e.target.select()}
-                                            className="flex-1 bg-white border border-slate-200 shadow-sm rounded-[12px] text-center font-bold text-[15px] py-2 outline-none text-slate-700" 
+                                            className="flex-1 bg-white border border-slate-200 shadow-sm rounded-[10px] text-center font-bold text-[14px] py-1.5 outline-none text-slate-700" 
                                         />
                                     </div>
                                 </div>
                             </div>
                         )}
 
-                        <div className="flex bg-slate-50 rounded-[20px] p-1.5 border border-slate-100">
-                            <input type="text" placeholder="Tên đơn hàng..." value={saveName} onChange={(e) => setSaveName(e.target.value)} className="flex-1 px-3 bg-transparent outline-none font-semibold text-[14px] text-slate-800" />
-                            <button onClick={handleSave} className="w-12 h-10 bg-blue-600 text-white rounded-[16px] shadow-sm flex items-center justify-center active:scale-95 transition-transform"><Icon name="save" size={18}/></button>
-                            <button onClick={() => setShowHistory(true)} className="w-12 h-10 bg-white text-slate-600 rounded-[16px] shadow-sm ml-1 border border-slate-200 flex items-center justify-center active:scale-95 transition-transform"><Icon name="history" size={18}/></button>
+                        <div className="flex bg-slate-50 rounded-[16px] border border-slate-100 p-1">
+                            <input type="text" placeholder="Tên đơn hàng..." value={saveName} onChange={(e) => setSaveName(e.target.value)} className="flex-1 px-3 bg-transparent outline-none font-medium text-[13px] text-slate-800" />
+                            <button onClick={handleSave} className="w-12 h-10 bg-blue-600 text-white rounded-[12px] flex items-center justify-center active:scale-95 transition-transform"><Icon name="save" size={16}/></button>
+                            <button onClick={() => setShowHistory(true)} className="w-12 h-10 bg-white text-slate-600 rounded-[12px] ml-1 border border-slate-200 flex items-center justify-center active:bg-slate-50 transition-colors"><Icon name="history" size={16}/></button>
                         </div>
                     </div>
 
-                    {/* Thẻ Báo Dư/Thiếu Lớn Rõ Ràng */}
+                    {/* Thẻ Báo Dư/Thiếu Phẳng */}
                     <div 
                         onClick={() => { if (unallocated > 0) handleSmartFillClick(); }}
-                        className={`p-5 rounded-[28px] flex items-center justify-between shadow-sm transition-all ${unallocated === 0 ? 'bg-emerald-500' : unallocated > 0 ? 'bg-amber-500 cursor-pointer active:scale-95' : 'bg-rose-500'}`}
+                        className={`p-4 rounded-[24px] flex items-center justify-between shadow-sm transition-all ${unallocated === 0 ? 'bg-[#22C55E]' : unallocated > 0 ? 'bg-[#F59E0B] cursor-pointer active:scale-[0.98]' : 'bg-[#EF4444]'}`}
                     >
                         <div className="flex flex-col text-white">
-                            <span className="text-[12px] font-bold uppercase tracking-wider opacity-90">
-                                {unallocated === 0 ? 'Hoàn thành' : unallocated > 0 ? 'Chưa xếp (Bấm để gộp)' : 'Lỗi: Bị Âm'}
+                            <span className="text-[11px] font-bold uppercase tracking-wider opacity-90">
+                                {unallocated === 0 ? 'Hoàn thành' : unallocated > 0 ? 'Chưa xếp (Bấm tự chia)' : 'Bị Âm'}
                             </span>
-                            <span className="text-[32px] font-black leading-none mt-1">
+                            <span className="text-[28px] font-black leading-none mt-1">
                                 {Math.abs(unallocated) === 0 ? "0" : formatVN(Math.abs(unallocated))}
                             </span>
                         </div>
-                        {unallocated > 0 && <div className="w-12 h-12 bg-white/20 rounded-full flex justify-center items-center text-white"><Icon name="wand-2" size={24}/></div>}
-                        {unallocated === 0 && <div className="w-12 h-12 bg-white/20 rounded-full flex justify-center items-center text-white"><Icon name="check" size={24}/></div>}
+                        {unallocated > 0 && <div className="w-10 h-10 bg-white/20 rounded-full flex justify-center items-center text-white"><Icon name="wand-2" size={20}/></div>}
+                        {unallocated === 0 && <div className="w-10 h-10 bg-white/20 rounded-full flex justify-center items-center text-white"><Icon name="check" size={20}/></div>}
                     </div>
 
                     <div className="flex gap-3">
-                        <button onClick={addPack} className="flex-1 py-4 bg-white shadow-sm text-blue-600 text-[14px] font-bold rounded-[24px] flex items-center justify-center gap-2 active:bg-slate-50 transition-colors"><Icon name="box" size={18}/> Hộp Mới</button>
-                        <button onClick={addSingle} className="flex-1 py-4 bg-white shadow-sm text-orange-600 text-[14px] font-bold rounded-[24px] flex items-center justify-center gap-2 active:bg-slate-50 transition-colors"><Icon name="layers" size={18}/> Lẻ Mới</button>
+                        <button onClick={addPack} className="flex-1 py-3 bg-white shadow-sm text-blue-600 text-[13px] font-bold rounded-[20px] flex items-center justify-center gap-2 active:bg-slate-50 border border-slate-100"><Icon name="box" size={16}/> Hộp Mới</button>
+                        <button onClick={addSingle} className="flex-1 py-3 bg-white shadow-sm text-orange-600 text-[13px] font-bold rounded-[20px] flex items-center justify-center gap-2 active:bg-slate-50 border border-slate-100"><Icon name="layers" size={16}/> Lẻ Mới</button>
                     </div>
 
                     <div className="space-y-3">
@@ -494,26 +491,24 @@
 
                     {showHistory && <HistoryModal type="Chia Ngược" historyList={historyList} close={() => setShowHistory(false)} loadHistory={loadHistory} deleteHistory={deleteHistory} />}
 
-                    {/* MODAL GỢI Ý ĐŨA THẦN MỚI */}
+                    {/* MODAL GỢI Ý */}
                     {showSuggestModal && (
                         <div className="fixed inset-0 bg-slate-900/40 z-[60] flex items-end fade-in">
-                            <div className="bg-white rounded-t-[40px] p-6 w-full shadow-2xl slide-up-modal pb-[calc(env(safe-area-inset-bottom,20px)+20px)]">
-                                <div className="flex justify-between items-center mb-6">
-                                    <h3 className="font-bold text-slate-800 text-xl flex items-center gap-2">Chỉ định Hộp</h3>
+                            <div className="bg-white rounded-t-[32px] p-6 w-full shadow-2xl slide-up-modal pb-[calc(env(safe-area-inset-bottom,20px)+20px)]">
+                                <div className="flex justify-between items-center mb-5">
+                                    <h3 className="font-bold text-slate-800 text-[18px] flex items-center gap-2">Chỉ định Hộp</h3>
                                     <button onClick={() => setShowSuggestModal(false)} className="w-8 h-8 bg-slate-100 text-slate-600 rounded-full flex justify-center items-center"><Icon name="x" size={18}/></button>
                                 </div>
                                 <div className="space-y-4">
-                                    <div className="bg-slate-50 rounded-[20px] p-4 flex justify-between items-center border border-slate-100">
-                                        <span className="text-slate-500 font-semibold">Phần dư cần chia:</span>
-                                        <span className="text-2xl font-black text-amber-600">{formatVN(unallocated)}</span>
+                                    <div className="bg-amber-50 rounded-[16px] p-3 flex justify-between items-center border border-amber-100">
+                                        <span className="text-amber-800 font-semibold text-[13px]">Cần xếp:</span>
+                                        <span className="text-xl font-black text-amber-600">{formatVN(unallocated)}</span>
                                     </div>
-                                    <div className="flex gap-2">
-                                        <select value={manualPackSelect} onChange={(e) => setManualPackSelect(e.target.value)} className="flex-1 bg-white border border-slate-200 rounded-[20px] px-4 outline-none font-bold text-[16px] text-blue-700 shadow-sm h-14">
-                                            {packSizes.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                                        </select>
-                                    </div>
-                                    <button onClick={applyManualPack} className="w-full h-14 bg-blue-600 text-white font-bold text-[16px] rounded-[20px] active:bg-blue-700 shadow-md">
-                                        Tự động xếp vào hộp này
+                                    <select value={manualPackSelect} onChange={(e) => setManualPackSelect(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-[16px] px-4 outline-none font-bold text-[15px] text-blue-700 h-12 shadow-sm">
+                                        {packSizes.map(p => <option key={p.id} value={p.id}>{p.name} ({formatVN(p.size)})</option>)}
+                                    </select>
+                                    <button onClick={applyManualPack} className="w-full h-12 bg-blue-600 text-white font-bold text-[15px] rounded-[16px] active:bg-blue-700 shadow-md">
+                                        Xếp vào hộp này
                                     </button>
                                 </div>
                             </div>
@@ -523,7 +518,7 @@
             );
         }
 
-        // --- ROW ITEM (THIẾT KẾ CLEAN UI, KHÔNG OVERLAP) ---
+        // --- ROW ITEM: CHIA 2 TẦNG GỌN GÀNG ---
         function RowItem({ item, packSizes, updateItem, removeItem }) {
             const isPack = item.type === 'pack';
             const mult = Number(item.multiplier) || 1;
@@ -531,74 +526,76 @@
             const itemTotal = isPack ? (qtyNum * mult * (packSizes.find(p => p.id === item.packId)?.size || 0)) : (qtyNum * mult);
             const isWaiting = qtyNum === 0;
             
-            const packName = isPack ? (packSizes.find(p => p.id === item.packId)?.name || 'Hộp') : 'Hàng Lẻ';
+            const packInfo = packSizes.find(p => p.id === item.packId);
+            const packName = isPack ? (packInfo?.name || 'Hộp') : 'Hàng Lẻ';
 
             return (
-                <div className={`flex flex-col gap-3 p-3.5 rounded-[28px] border transition-colors shadow-sm ${item.isLocked ? 'bg-slate-100 border-slate-200 opacity-60' : (isWaiting ? 'bg-white border-amber-300 shadow-amber-100/50' : 'bg-white border-transparent')}`}>
+                <div className={`bg-white rounded-[20px] p-3.5 shadow-sm border transition-colors flex flex-col gap-2.5 ${item.isLocked ? 'opacity-60 bg-slate-50 border-slate-200' : (isWaiting ? 'border-blue-200' : 'border-slate-100')}`}>
+                    
                     <div className="flex justify-between items-center gap-2">
-                        <RowMultiplier multiplier={mult} setMultiplier={(v) => updateItem(item.id, 'multiplier', v)} packName={packName} />
-                        
-                        <div className="flex-1">
-                            {isPack ? (
-                                <select disabled={item.isLocked} value={item.packId} onChange={(e) => updateItem(item.id, 'packId', e.target.value)} className={`w-full bg-transparent text-[16px] font-bold ${item.isLocked ? 'text-slate-500' : 'text-slate-800'} outline-none appearance-none`}>
-                                    {packSizes.map(p => <option key={p.id} value={p.id}>{p.name} ({formatVN(p.size)})</option>)}
-                                </select>
-                            ) : (
-                                <span className={`text-[16px] font-bold ${item.isLocked ? 'text-slate-500' : 'text-orange-600'}`}>Hàng Lẻ</span>
-                            )}
+                        <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                            <RowMultiplier multiplier={mult} setMultiplier={(v) => updateItem(item.id, 'multiplier', v)} packName={packName} />
+                            <div className="flex-1 truncate">
+                                {isPack ? (
+                                    <select disabled={item.isLocked} value={item.packId} onChange={(e) => updateItem(item.id, 'packId', e.target.value)} className={`w-full bg-transparent text-[15px] font-bold outline-none appearance-none ${item.isLocked ? 'text-slate-600' : 'text-slate-800'}`}>
+                                        {packSizes.map(p => <option key={p.id} value={p.id}>{p.name} ({formatVN(p.size)})</option>)}
+                                    </select>
+                                ) : (
+                                    <span className="text-[15px] font-bold text-orange-600">Hàng Lẻ</span>
+                                )}
+                            </div>
                         </div>
-                        
-                        <div className="text-right">
-                            <span className={`text-[18px] font-black ${isPack ? 'text-blue-600' : 'text-orange-600'}`}>{itemTotal === 0 ? "0" : formatVN(itemTotal)}</span>
+                        <div className={`text-[15px] font-black shrink-0 pl-1 ${isPack ? 'text-blue-600' : 'text-orange-600'}`}>
+                            {itemTotal === 0 ? "0" : formatVN(itemTotal)}
                         </div>
                     </div>
                     
-                    <div className="flex justify-between items-center">
-                        <div className={`flex items-center rounded-[20px] overflow-hidden bg-slate-100 h-12 w-[140px] ${item.isLocked ? 'opacity-50 pointer-events-none' : ''}`}>
-                            <button onClick={() => updateItem(item.id, 'qty', Math.max(0, qtyNum - 1))} className="w-12 h-full flex items-center justify-center text-slate-600 hover:bg-slate-200 active:bg-slate-300 font-black text-xl">-</button>
+                    <div className="flex justify-between items-center pl-[50px]">
+                        <div className={`flex items-center bg-slate-100 rounded-[10px] h-10 w-[120px] overflow-hidden ${item.isLocked ? 'pointer-events-none opacity-60' : ''}`}>
+                            <button onClick={() => updateItem(item.id, 'qty', Math.max(0, qtyNum - 1))} className="w-10 h-full flex items-center justify-center text-slate-700 active:bg-slate-200 font-black text-lg">-</button>
                             <input 
                                 type="text" inputMode="numeric" pattern="[0-9]*" 
                                 value={item.qty===0?'':formatVN(item.qty)} 
                                 onChange={(e) => updateItem(item.id, 'qty', parseVN(e.target.value))}
                                 onFocus={(e) => e.target.select()}
                                 placeholder="0"
-                                className="flex-1 w-full h-full text-center text-[18px] font-black bg-white outline-none p-0" 
+                                className="flex-1 w-full h-full text-center text-[15px] font-black bg-white outline-none p-0" 
                             />
-                            <button onClick={() => updateItem(item.id, 'qty', qtyNum + 1)} className="w-12 h-full flex items-center justify-center text-slate-600 hover:bg-slate-200 active:bg-slate-300 font-black text-xl">+</button>
+                            <button onClick={() => updateItem(item.id, 'qty', qtyNum + 1)} className="w-10 h-full flex items-center justify-center text-slate-700 active:bg-slate-200 font-black text-lg">+</button>
                         </div>
                         
-                        <div className="flex gap-2">
-                            <button onClick={() => updateItem(item.id, 'isLocked', !item.isLocked)} className={`w-12 h-12 rounded-[18px] flex items-center justify-center transition-colors ${item.isLocked ? 'bg-amber-100 text-amber-600' : 'bg-slate-50 text-slate-400 active:bg-slate-100'}`}><Icon name={item.isLocked ? 'lock' : 'unlock'} size={18} /></button>
-                            <button onClick={() => removeItem(item.id)} className="w-12 h-12 rounded-[18px] flex items-center justify-center bg-rose-50 text-rose-500 active:bg-rose-100 transition-colors"><Icon name="trash-2" size={18}/></button>
+                        <div className="flex gap-1.5">
+                            <button onClick={() => updateItem(item.id, 'isLocked', !item.isLocked)} className={`w-10 h-10 rounded-[10px] flex items-center justify-center transition-colors ${item.isLocked ? 'bg-slate-200 text-slate-600' : 'bg-slate-50 text-slate-400 active:bg-slate-100'}`}><Icon name={item.isLocked ? 'lock' : 'unlock'} size={16} /></button>
+                            <button onClick={() => removeItem(item.id)} className="w-10 h-10 rounded-[10px] flex items-center justify-center bg-rose-50 text-rose-500 active:bg-rose-100 transition-colors"><Icon name="trash-2" size={16}/></button>
                         </div>
                     </div>
                 </div>
             );
         }
 
-        // --- COMPONENT MODAL LỊCH SỬ CHUNG ---
+        // --- COMPONENT LỊCH SỬ ---
         const HistoryModal = ({ type, historyList, close, loadHistory, deleteHistory }) => (
-            <div className="fixed inset-0 bg-slate-900/40 z-[100] flex flex-col fade-in">
-                <div className="bg-white pt-[env(safe-area-inset-top,20px)] pb-2 px-4 flex justify-between items-center border-b border-slate-200 shadow-sm">
+            <div className="fixed inset-0 bg-slate-900/40 z-[60] flex flex-col fade-in">
+                <div className="bg-white pt-[env(safe-area-inset-top,20px)] pb-3 px-4 flex justify-between items-center border-b border-slate-200 shadow-sm z-10">
                     <h3 className="font-bold text-slate-800 text-lg">Lịch sử {type}</h3>
                     <button onClick={close} className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center"><Icon name="x" size={18}/></button>
                 </div>
-                <div className="flex-1 overflow-y-auto p-4 bg-[#F2F2F7] space-y-4 pb-[calc(env(safe-area-inset-bottom,20px)+20px)]">
-                    {historyList.length === 0 ? <p className="text-center text-slate-500 mt-10 font-medium">Chưa có dữ liệu lịch sử.</p> : historyList.map(entry => (
-                        <div key={entry.id} className="bg-white p-4 rounded-[24px] shadow-sm flex flex-col gap-3">
+                <div className="flex-1 overflow-y-auto p-4 bg-[#F2F2F7] space-y-3 pb-[calc(env(safe-area-inset-bottom,20px)+40px)]">
+                    {historyList.length === 0 ? <p className="text-center text-slate-500 mt-10 font-medium text-[13px]">Chưa có dữ liệu.</p> : historyList.map(entry => (
+                        <div key={entry.id} className="bg-white p-4 rounded-[20px] shadow-sm flex flex-col gap-2.5 border border-slate-100">
                             <div className="flex justify-between items-start">
                                 <div>
-                                    <p className="font-bold text-slate-800 text-[16px]">{entry.name}</p>
-                                    <p className="text-[11px] text-slate-400 font-medium mt-0.5">{entry.date}</p>
+                                    <p className="font-bold text-slate-800 text-[15px]">{entry.name}</p>
+                                    <p className="text-[10px] text-slate-400 font-medium mt-0.5">{entry.date}</p>
                                 </div>
-                                <span className="text-[13px] font-black text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full">Tổng: {formatVN(entry.total)}</span>
+                                <span className="text-[12px] font-black text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full">{formatVN(entry.total)}</span>
                             </div>
-                            <div className="bg-slate-50 p-3 rounded-[16px] text-[13px] font-mono font-medium text-slate-600 leading-relaxed">
+                            <div className="bg-slate-50 p-2.5 rounded-[12px] text-[12px] font-mono font-medium text-slate-600 leading-relaxed border border-slate-100">
                                 {entry.formulaStr}
                             </div>
                             <div className="flex gap-2 pt-1">
-                                <button onClick={() => loadHistory(entry)} className="flex-1 py-3 bg-slate-100 text-slate-700 font-bold rounded-[16px] active:bg-slate-200 flex items-center justify-center gap-1.5"><Icon name="download" size={16}/> Mở lại</button>
-                                <button onClick={() => deleteHistory(entry.id)} className="w-14 bg-rose-50 text-rose-500 rounded-[16px] active:bg-rose-100 flex items-center justify-center"><Icon name="trash-2" size={18}/></button>
+                                <button onClick={() => loadHistory(entry)} className="flex-1 py-2.5 bg-slate-100 text-slate-700 font-bold text-[13px] rounded-[12px] active:bg-slate-200 flex items-center justify-center gap-1.5"><Icon name="download" size={14}/> Mở lại</button>
+                                <button onClick={() => deleteHistory(entry.id)} className="w-12 bg-rose-50 text-rose-500 rounded-[12px] active:bg-rose-100 flex items-center justify-center"><Icon name="trash-2" size={16}/></button>
                             </div>
                         </div>
                     ))}
@@ -607,10 +604,9 @@
         );
 
         // --- TAB 3: SETTINGS ---
-        function Tab3Settings({ packSizes, setPackSizes }) {
+        function Tab3Settings({ packSizes, setPackSizes, hasUpdate, setHasUpdate }) {
             const [newName, setNewName] = useState('');
             const [newSize, setNewSize] = useState('');
-            const [showUpdate, setShowUpdate] = useState(true);
             
             const handleAdd = () => {
                 if (newName && newSize) {
@@ -619,35 +615,35 @@
                 }
             };
             return (
-                <div className="p-4 space-y-5 fade-in">
-                    {/* THÔNG BÁO CẬP NHẬT ĐÃ ĐƯỢC KHÔI PHỤC VÀ LÀM ĐẸP */}
-                    {showUpdate && (
-                        <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-5 rounded-[28px] shadow-lg text-white flex flex-col gap-2 relative overflow-hidden">
-                            <div className="absolute -right-4 -bottom-4 opacity-10"><Icon name="rocket" size={120}/></div>
-                            <h3 className="font-black text-[18px] z-10">Bản Cập Nhật V14.0 Pro</h3>
-                            <p className="text-blue-50 text-[12px] z-10 leading-relaxed font-medium">Giao diện chuẩn Apple, không đè lấp. Định dạng số 12.000 mượt mà. Hệ số x1 popup thông minh.</p>
-                            <button onClick={() => setShowUpdate(false)} className="mt-2 text-[12px] font-bold bg-white text-indigo-600 px-4 py-2 rounded-full w-fit z-10 shadow-sm active:scale-95">Tuyệt vời!</button>
+                <div className="space-y-4 fade-in">
+                    {/* Báo Cập Nhật */}
+                    {hasUpdate && (
+                        <div className="bg-white p-4 rounded-[24px] shadow-sm border border-slate-100 flex flex-col gap-2 relative overflow-hidden mt-1">
+                            <h3 className="font-bold text-[15px] text-blue-600 flex items-center gap-1.5"><Icon name="rocket" size={18}/> Đã cập nhật V16.0!</h3>
+                            <p className="text-slate-500 text-[12px] leading-relaxed font-medium">Đã tinh chỉnh khoảng trống, đẩy cao thanh Menu để tránh nút vuốt, và định dạng số cực mượt.</p>
+                            <button onClick={() => setHasUpdate(false)} className="mt-1 text-[11px] font-bold bg-blue-50 text-blue-600 px-4 py-1.5 rounded-full w-fit active:bg-blue-100">Đã hiểu</button>
                         </div>
                     )}
 
-                    <div className="bg-white rounded-[32px] shadow-sm p-5">
-                        <h3 className="font-bold text-slate-400 text-[12px] uppercase tracking-widest mb-4">Cấu hình Hộp / Thùng</h3>
-                        <div className="space-y-3">
+                    <div className="bg-white rounded-[28px] shadow-sm p-4 border border-slate-100">
+                        <h3 className="font-bold text-slate-400 text-[11px] uppercase tracking-widest mb-3">Cấu hình Hộp / Thùng</h3>
+                        <div className="space-y-2.5">
                             {packSizes.map(pack => (
-                                <div key={pack.id} className="flex justify-between items-center bg-slate-50 p-3.5 rounded-[20px] border border-slate-100">
+                                <div key={pack.id} className="flex justify-between items-center bg-slate-50 p-3 rounded-[16px] border border-slate-100">
                                     <div>
-                                        <p className="font-bold text-slate-800 text-[16px]">{pack.name}</p>
-                                        <p className="text-[12px] text-blue-600 font-bold mt-1">1 hộp = {formatVN(pack.size)}</p>
+                                        <p className="font-bold text-slate-800 text-[15px]">{pack.name}</p>
+                                        <p className="text-[11px] text-blue-600 font-bold mt-0.5">1 hộp = {formatVN(pack.size)}</p>
                                     </div>
-                                    <button onClick={() => setPackSizes(packSizes.filter(p => p.id !== pack.id))} className="w-10 h-10 bg-white text-rose-500 rounded-full shadow-sm flex items-center justify-center active:scale-90" disabled={packSizes.length <= 1}><Icon name="trash-2" size={16} /></button>
+                                    <button onClick={() => setPackSizes(packSizes.filter(p => p.id !== pack.id))} className="w-10 h-10 bg-white text-rose-500 rounded-[12px] shadow-sm flex items-center justify-center active:scale-90 border border-slate-100" disabled={packSizes.length <= 1}><Icon name="trash-2" size={16} /></button>
                                 </div>
                             ))}
                         </div>
-                        <div className="mt-6 pt-6 border-t border-slate-100">
-                            <div className="flex gap-2">
-                                <input type="text" placeholder="Tên Hộp" value={newName} onChange={e => setNewName(e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-[16px] px-4 h-12 text-[14px] outline-none font-semibold text-slate-800 focus:bg-white transition-colors" />
-                                <input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="S.Lượng" value={newSize===0?'':formatVN(newSize)} onChange={e => setNewSize(parseVN(e.target.value))} className="w-24 bg-slate-50 border border-slate-200 rounded-[16px] h-12 text-[15px] outline-none text-center font-black text-slate-800 focus:bg-white transition-colors" />
-                                <button onClick={handleAdd} className="w-14 h-12 bg-slate-800 text-white rounded-[16px] active:scale-95 flex items-center justify-center"><Icon name="plus" size={20}/></button>
+                        
+                        <div className="mt-5 pt-5 border-t border-slate-100">
+                            <div className="flex gap-2 w-full">
+                                <input type="text" placeholder="Tên Hộp" value={newName} onChange={e => setNewName(e.target.value)} className="flex-[3] bg-slate-50 border border-slate-200 rounded-[14px] px-3 h-12 text-[13px] outline-none font-semibold text-slate-800 focus:bg-white min-w-0" />
+                                <input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="S.Lượng" value={newSize===0?'':formatVN(newSize)} onChange={e => setNewSize(parseVN(e.target.value))} className="flex-[2] bg-slate-50 border border-slate-200 rounded-[14px] h-12 text-[14px] outline-none text-center font-black text-slate-800 focus:bg-white min-w-0" />
+                                <button onClick={handleAdd} className="flex-[1] max-w-[50px] h-12 bg-slate-800 text-white rounded-[14px] active:scale-95 flex items-center justify-center shrink-0"><Icon name="plus" size={20}/></button>
                             </div>
                         </div>
                     </div>
