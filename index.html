@@ -3,12 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Quản Lý Đóng Gói</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     
     <!-- React & ReactDOM -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
@@ -20,35 +23,16 @@
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
-    <!-- Google Fonts: Inter -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-
     <style>
-        body { 
-            margin: 0; 
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
-            background-color: #f2f2f7; 
-            -webkit-tap-highlight-color: transparent;
-            color: #1f2937;
-        }
-        
+        body { margin: 0; font-family: 'Inter', -apple-system, sans-serif; background-color: #e2e8f0; -webkit-tap-highlight-color: transparent;}
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        
-        .fade-in { animation: fadeIn 0.2s ease-out; }
+        .fade-in { animation: fadeIn 0.2s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        .slide-up { animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
-        @keyframes slideUp { from { transform: translateY(15px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        
-        /* Reset Input Number (No arrows) */
-        input[type=number]::-webkit-inner-spin-button, 
-        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-        input[type=number] { -moz-appearance: textfield; }
-        
-        /* Drag & Drop Visual Feedback */
-        .drag-over { border: 2px dashed #3b82f6 !important; background-color: #eff6ff !important; transform: scale(1.02); transition: all 0.2s; }
+        .slide-up { animation: slideUp 0.3s ease-out; }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        input { border-radius: 0; -webkit-appearance: none; appearance: none; }
+        .bottom-nav-pill { padding-bottom: env(safe-area-inset-bottom, 12px); }
     </style>
 </head>
 <body>
@@ -63,7 +47,7 @@
                 if (iconRef.current && window.lucide) {
                     iconRef.current.innerHTML = '';
                     const tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = `<i data-lucide="${name}" style="width:${size}px; height:${size}px; stroke:${color}; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; fill: none;"></i>`;
+                    tempDiv.innerHTML = `<i data-lucide="${name}" style="width:${size}px; height:${size}px; stroke:${color}; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; fill: none;"></i>`;
                     iconRef.current.appendChild(tempDiv.firstChild);
                     window.lucide.createIcons({ root: iconRef.current });
                 }
@@ -71,93 +55,58 @@
             return <span ref={iconRef} className={`inline-flex items-center justify-center ${className}`}></span>;
         };
 
-        const generateFormulaString = (items, packSizes) => {
-            let parts = [];
-            let total = 0;
-            items.forEach(item => {
-                const qty = parseInt(item.qty) || 0;
-                const mult = parseInt(item.multiplier) || 1;
-                const realQty = qty * mult;
-
-                // Tự động bỏ qua các phần tử có số lượng 0
-                if (realQty > 0) {
-                    if (item.type === 'pack') {
-                        const pack = packSizes.find(p => p.id === item.packId);
-                        if (pack) {
-                            parts.push(`${realQty} x ${pack.size}`);
-                            total += realQty * pack.size;
-                        }
-                    } else {
-                        parts.push(`${realQty}`);
-                        total += realQty;
-                    }
-                }
-            });
-            return { formula: parts.join(' + '), total };
-        };
-
-        const downloadCSV = (dataStr, filename) => {
-            let csvContent = "data:text/csv;charset=utf-8,\uFEFF" + dataStr;
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", filename);
-            document.body.appendChild(link); link.click(); document.body.removeChild(link);
-        };
-
         function App() {
             const [activeTab, setActiveTab] = useState('tab2');
             const [packSizes, setPackSizes] = useState(() => {
                 const saved = localStorage.getItem('packSizes');
                 return saved ? JSON.parse(saved) : [
-                    { id: 'p1', name: 'Thùng Lớn', size: 24 },
-                    { id: 'p2', name: 'Hộp Vừa', size: 12 },
-                    { id: 'p3', name: 'Lốc Nhỏ', size: 6 }
+                    { id: 'p1', name: 'K51 cốp', size: 2688 },
+                    { id: 'p2', name: 'K56', size: 700 }
                 ];
             });
-            
-            const [toastMsg, setToastMsg] = useState('');
+
+            // State Cập Nhật PWA (ĐÃ ĐƯỢC KHÔI PHỤC)
             const [hasUpdate, setHasUpdate] = useState(true);
+
+            const [toastMsg, setToastMsg] = useState('');
 
             useEffect(() => { localStorage.setItem('packSizes', JSON.stringify(packSizes)); }, [packSizes]);
 
             const showToast = (msg) => {
                 setToastMsg(msg);
-                setTimeout(() => setToastMsg(''), 2000);
+                setTimeout(() => setToastMsg(''), 2500);
             };
 
             return (
-                <div className="flex justify-center items-center min-h-screen md:p-4 bg-gray-300">
-                    <div className="w-full h-[100dvh] md:max-w-[400px] md:h-[800px] bg-[#f2f2f7] md:rounded-[40px] shadow-2xl overflow-hidden flex flex-col relative md:border-[8px] border-gray-900">
+                <div className="flex justify-center items-center min-h-screen bg-slate-300 md:p-4">
+                    <div className="w-full h-[100dvh] md:max-w-[420px] md:h-[850px] bg-slate-50 md:rounded-[40px] shadow-2xl overflow-hidden flex flex-col relative md:border-[8px] border-slate-800">
                         
-                        {/* Header Tinh Gọn */}
-                        <div className="bg-white/80 backdrop-blur-md pt-[env(safe-area-inset-top,40px)] md:pt-6 pb-3 px-6 z-20 flex justify-center items-end shrink-0 border-b border-gray-200/50">
-                            <h1 className="text-[17px] font-bold tracking-tight text-gray-900">
+                        <div className="bg-white pt-[env(safe-area-inset-top,20px)] md:pt-6 pb-3 px-6 shadow-sm z-10 flex justify-center items-center shrink-0">
+                            <h1 className="text-lg font-black text-slate-800 tracking-tight">
                                 {activeTab === 'tab1' && 'Tính Xuôi (Kho)'}
                                 {activeTab === 'tab2' && 'Chia Ngược (Đóng gói)'}
-                                {activeTab === 'tab3' && 'Cài Đặt'}
+                                {activeTab === 'tab3' && 'Cài Đặt Hệ Thống'}
                             </h1>
                         </div>
 
-                        {/* Toast */}
                         {toastMsg && (
-                            <div className="absolute top-[env(safe-area-inset-top,80px)] left-1/2 transform -translate-x-1/2 z-50 bg-gray-800/90 backdrop-blur text-white px-4 py-2.5 rounded-full shadow-lg text-[13px] font-semibold fade-in flex items-center gap-2 whitespace-nowrap">
-                                <Icon name="info" size={16}/> {toastMsg}
+                            <div className="absolute top-[env(safe-area-inset-top,60px)] left-1/2 transform -translate-x-1/2 z-50 bg-slate-800 text-white px-5 py-2.5 rounded-full shadow-xl text-sm font-semibold fade-in flex items-center gap-2 whitespace-nowrap">
+                                <Icon name="check-circle-2" size={16}/> {toastMsg}
                             </div>
                         )}
 
-                        {/* Content Area - Tăng pb lên 130px để nội dung không bị che bởi thanh menu nổi */}
-                        <div className="flex-1 overflow-y-auto pb-[130px] hide-scrollbar relative">
+                        <div className="flex-1 overflow-y-auto bg-slate-100 pb-32 hide-scrollbar">
                             {activeTab === 'tab1' && <Tab1Calculator packSizes={packSizes} showToast={showToast} />}
                             {activeTab === 'tab2' && <Tab2Divider packSizes={packSizes} showToast={showToast} />}
-                            {activeTab === 'tab3' && <Tab3Settings packSizes={packSizes} setPackSizes={setPackSizes} showToast={showToast} hasUpdate={hasUpdate} setHasUpdate={setHasUpdate} />}
+                            {/* Pass state cập nhật xuống Tab3 */}
+                            {activeTab === 'tab3' && <Tab3Settings packSizes={packSizes} setPackSizes={setPackSizes} hasUpdate={hasUpdate} setHasUpdate={setHasUpdate} />}
                         </div>
 
-                        {/* Bottom Navigation - Nổi lên tránh Home Indicator */}
-                        <div className="absolute bottom-[env(safe-area-inset-bottom,20px)] left-4 right-4 z-30 pb-2">
-                            <div className="bg-white/90 backdrop-blur-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-gray-200/50 rounded-full flex justify-around p-1.5">
+                        <div className="absolute bottom-0 w-full bottom-nav-pill px-4 pb-4 z-20 pointer-events-none">
+                            <div className="bg-white rounded-full shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-slate-200 flex justify-around p-1.5 pointer-events-auto">
                                 <NavButton icon="calculator" label="Tính Xuôi" isActive={activeTab === 'tab1'} onClick={() => setActiveTab('tab1')} />
                                 <NavButton icon="package-open" label="Chia Ngược" isActive={activeTab === 'tab2'} onClick={() => setActiveTab('tab2')} />
+                                {/* Có dấu chấm đỏ nếu có cập nhật */}
                                 <NavButton icon="settings" label="Cài Đặt" isActive={activeTab === 'tab3'} onClick={() => setActiveTab('tab3')} hasBadge={hasUpdate} />
                             </div>
                         </div>
@@ -168,229 +117,163 @@
 
         function NavButton({ icon, label, isActive, onClick, hasBadge }) {
             return (
-                <button onClick={onClick} className={`flex flex-col items-center justify-center w-[70px] py-2 relative transition-all duration-300 rounded-full ${isActive ? 'bg-blue-50 text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}>
-                    <Icon name={icon} size={22} className={`transition-transform duration-300 ${isActive ? 'scale-110' : ''}`} />
-                    <span className={`text-[10px] mt-1 ${isActive ? 'font-bold' : 'font-medium'}`}>{label}</span>
-                    {hasBadge && !isActive && <div className="absolute top-1 right-3 w-2 h-2 bg-red-500 border-2 border-white rounded-full"></div>}
+                <button onClick={onClick} className={`flex flex-col items-center justify-center w-20 py-2 rounded-full transition-all duration-300 relative ${isActive ? 'bg-blue-600 text-white shadow-md' : 'bg-transparent text-slate-400 hover:text-slate-600'}`}>
+                    <div className="relative">
+                        <Icon name={icon} size={22} color={isActive ? '#ffffff' : 'currentColor'} />
+                        {/* Dấu chấm đỏ (Red dot badge) */}
+                        {hasBadge && !isActive && <span className="absolute -top-1 -right-1.5 flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 border border-white"></span></span>}
+                    </div>
+                    <span className={`text-[10px] mt-1 tracking-wide ${isActive ? 'font-bold' : 'font-medium'}`}>{label}</span>
                 </button>
             );
         }
 
-        function RowItem({ item, packSizes, updateItem, removeItem, onDragStart, onDragOver, onDrop }) {
-            const isPack = item.type === 'pack';
-            const mult = item.multiplier || 1;
-            const packSize = isPack ? (packSizes.find(p => p.id === item.packId)?.size || 0) : 1;
-            const itemTotal = (parseInt(item.qty) || 0) * mult * packSize;
-            
-            const [showMultModal, setShowMultModal] = useState(false);
+        const RowMultiplier = ({ multiplier, setMultiplier }) => {
+            const [isOpen, setIsOpen] = useState(false);
+            const [tempVal, setTempVal] = useState(multiplier);
 
-            const handleQtyChange = (e) => {
-                const val = e.target.value.replace(/[^0-9]/g, '');
-                updateItem(item.id, 'qty', val === '' ? 0 : parseInt(val));
-            };
-
-            const applyResetToX1 = () => {
-                const newQty = (parseInt(item.qty) || 0) * mult;
-                updateItem(item.id, 'qty', newQty);
-                updateItem(item.id, 'multiplier', 1);
-                setShowMultModal(false);
+            const apply = () => {
+                const val = parseInt(tempVal) || 1;
+                setMultiplier(val);
+                setIsOpen(false);
             };
 
             return (
-                <div 
-                    draggable={!item.isLocked && !!onDragStart}
-                    onDragStart={(e) => onDragStart && onDragStart(e, item.id)}
-                    onDragOver={(e) => onDragOver && onDragOver(e, item)}
-                    onDrop={(e) => onDrop && onDrop(e, item.id)}
-                    className={`relative flex items-center p-2 rounded-2xl border transition-all duration-200 ${item.isLocked ? 'bg-gray-50 border-gray-100 opacity-80' : (item.qty === 0 ? 'bg-yellow-50/50 border-yellow-200' : 'bg-white border-gray-200 shadow-sm')}`}
-                >
-                    {/* Cụm Multiplier / Drag Handle */}
-                    <div className="shrink-0 flex flex-col items-center mr-2 relative z-10">
-                        {item.isLocked ? (
-                            <button onClick={() => updateItem(item.id, 'isLocked', false)} className="p-2 rounded-xl bg-gray-100 text-red-500">
-                                <Icon name="lock" size={16}/>
-                            </button>
-                        ) : (
-                            <button 
-                                onClick={() => setShowMultModal(!showMultModal)} 
-                                className={`w-9 h-10 flex flex-col items-center justify-center rounded-[10px] transition-colors cursor-grab active:cursor-grabbing border ${mult > 1 ? 'bg-indigo-100 border-indigo-200 text-indigo-700' : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}
-                            >
-                                <Icon name="grip-horizontal" size={14} className="mb-0.5 opacity-50"/>
-                                <span className="text-[10px] font-bold leading-none">x{mult}</span>
-                            </button>
-                        )}
-                        
-                        {/* Popover Nhập Hệ Số Tinh Tế */}
-                        {showMultModal && !item.isLocked && (
-                            <div className="absolute left-10 top-0 bg-white border border-gray-200 shadow-xl rounded-xl p-2 flex items-center gap-2 slide-up w-[180px]">
-                                <span className="text-[11px] font-semibold text-gray-500">Hệ số:</span>
+                <div className="relative shrink-0">
+                    <button 
+                        onClick={() => { setTempVal(multiplier); setIsOpen(!isOpen); }}
+                        className={`w-10 h-10 rounded-xl border flex flex-col items-center justify-center cursor-grab active:cursor-grabbing transition-colors ${multiplier > 1 ? 'bg-indigo-100 border-indigo-200 text-indigo-700' : 'bg-slate-50 border-slate-200 text-slate-400 hover:bg-slate-100'}`}
+                    >
+                        <Icon name="grip-vertical" size={14} className="mb-0.5 opacity-60"/>
+                        <span className="text-[10px] font-black leading-none tracking-tighter">x{multiplier}</span>
+                    </button>
+
+                    {isOpen && (
+                        <div className="absolute top-12 left-0 bg-white border border-slate-200 shadow-xl rounded-2xl p-2 z-40 w-44 fade-in flex items-center gap-2">
+                            <span className="text-xs font-bold text-slate-500 pl-1">Hệ số:</span>
+                            <div className="flex-1 flex bg-indigo-50 border border-indigo-100 rounded-lg overflow-hidden">
+                                <span className="bg-indigo-100 text-indigo-600 font-bold px-2 py-1.5 text-xs flex items-center">x</span>
                                 <input 
                                     type="text" inputMode="numeric" pattern="[0-9]*" 
-                                    value={mult} 
-                                    onFocus={(e) => e.target.select()} 
-                                    onChange={e => updateItem(item.id, 'multiplier', parseInt(e.target.value.replace(/[^0-9]/g, ''))||1)} 
-                                    className="w-10 text-center font-bold text-sm outline-none text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-md py-1" 
+                                    value={tempVal} 
+                                    onChange={(e) => setTempVal(e.target.value.replace(/[^0-9]/g, ''))}
+                                    onFocus={(e) => e.target.select()}
+                                    className="w-full bg-transparent font-black text-indigo-800 text-sm outline-none px-1 text-center"
                                 />
-                                {mult > 1 && (
-                                    <button onClick={applyResetToX1} className="text-[10px] font-bold bg-indigo-600 text-white px-2 py-1.5 rounded-lg active:scale-95">
-                                        Về x1
-                                    </button>
-                                )}
                             </div>
-                        )}
-                    </div>
-
-                    {/* Tên & Dropdown */}
-                    <div className="flex-1 min-w-0 mr-2">
-                        {isPack ? (
-                            <select disabled={item.isLocked} value={item.packId} onChange={(e) => updateItem(item.id, 'packId', e.target.value)} className={`w-full bg-transparent text-[14px] font-semibold outline-none truncate appearance-none ${item.isLocked ? 'text-gray-500' : 'text-gray-900'}`}>
-                                {packSizes.map(p => <option key={p.id} value={p.id}>{p.name} ({p.size})</option>)}
-                            </select>
-                        ) : (
-                            <span className={`w-full text-[14px] font-semibold truncate block ${item.isLocked ? 'text-gray-500' : 'text-orange-600'}`}>Hàng Lẻ</span>
-                        )}
-                    </div>
-
-                    {/* Bộ Stepper Tinh Gọn */}
-                    <div className={`flex items-center rounded-xl overflow-hidden border ${item.isLocked ? 'border-transparent bg-gray-50' : 'border-gray-200 bg-white'} shrink-0 h-9`}>
-                        <button disabled={item.isLocked} onClick={() => updateItem(item.id, 'qty', Math.max(0, (parseInt(item.qty)||0) - 1))} className="w-8 h-full flex items-center justify-center text-gray-500 bg-gray-50 active:bg-gray-200 border-r border-gray-200 font-medium">-</button>
-                        <input 
-                            disabled={item.isLocked} type="text" inputMode="numeric" pattern="[0-9]*" 
-                            value={item.qty===0?'':item.qty} onFocus={(e) => e.target.select()} onChange={handleQtyChange} 
-                            className={`w-10 h-full text-center text-[15px] font-bold bg-transparent outline-none p-0 ${item.isLocked ? 'text-gray-500' : 'text-gray-900'}`} placeholder="0" 
-                        />
-                        <button disabled={item.isLocked} onClick={() => updateItem(item.id, 'qty', (parseInt(item.qty)||0) + 1)} className="w-8 h-full flex items-center justify-center text-gray-500 bg-gray-50 active:bg-gray-200 border-l border-gray-200 font-medium">+</button>
-                    </div>
-
-                    {/* Tổng & Xóa (Stacked) */}
-                    <div className="w-[48px] flex flex-col items-end justify-center shrink-0 ml-1">
-                        <span className={`text-[13px] font-bold leading-none mb-1 ${isPack ? 'text-blue-600' : 'text-orange-600'}`}>{itemTotal}</span>
-                        <div className="flex gap-1">
-                            {!item.isLocked && <button onClick={() => updateItem(item.id, 'isLocked', true)} className="text-gray-300 hover:text-gray-500 active:scale-90"><Icon name="lock" size={12}/></button>}
-                            <button onClick={() => removeItem(item.id)} className="text-gray-300 hover:text-red-500 active:scale-90"><Icon name="trash-2" size={14}/></button>
+                            <button onClick={apply} className="bg-indigo-600 text-white p-2 rounded-lg active:bg-indigo-700"><Icon name="check" size={14}/></button>
                         </div>
-                    </div>
+                    )}
                 </div>
             );
-        }
+        };
 
+        const generateFormulaString = (items, packSizes) => {
+            let parts = []; let total = 0;
+            items.forEach(item => {
+                if (item.qty > 0) {
+                    const mult = item.multiplier || 1;
+                    const finalQty = item.qty * mult;
+                    if (item.type === 'pack') {
+                        const pack = packSizes.find(p => p.id === item.packId);
+                        if (pack) {
+                            parts.push(`${finalQty} x ${pack.size}`);
+                            total += finalQty * pack.size;
+                        }
+                    } else {
+                        parts.push(`${finalQty}`);
+                        total += finalQty;
+                    }
+                }
+            });
+            return { formula: parts.join(' + '), total };
+        };
+
+        // --- TAB 1: TÍNH XUÔI ---
         function Tab1Calculator({ packSizes, showToast }) {
             const [items, setItems] = useState(() => {
-                const saved = localStorage.getItem('t1Items');
+                const saved = localStorage.getItem('tab1Data');
                 return saved ? JSON.parse(saved) : [{ id: Date.now(), type: 'pack', packId: packSizes[0]?.id || '', qty: 0, multiplier: 1, isLocked: false }];
             });
-            
-            const [saveName, setSaveName] = useState('');
-            const [showHistory, setShowHistory] = useState(false);
-            const [historyList, setHistoryList] = useState(() => { const s = localStorage.getItem('t1Hist'); return s ? JSON.parse(s) : []; });
-            
-            // Auto-save trạng thái hiện tại
-            useEffect(() => { localStorage.setItem('t1Items', JSON.stringify(items)); }, [items]);
-            useEffect(() => { localStorage.setItem('t1Hist', JSON.stringify(historyList)); }, [historyList]);
+            useEffect(() => { localStorage.setItem('tab1Data', JSON.stringify(items)); }, [items]);
 
-            const addItem = (type) => setItems([...items, { id: Date.now() + Math.random(), type, packId: type === 'pack' ? (packSizes[0]?.id || '') : null, qty: 0, multiplier: 1, isLocked: false }]);
+            const addItem = (type) => setItems([...items, { id: Date.now() + Math.random(), type, packId: type==='pack' ? packSizes[0]?.id : '', qty: 0, multiplier: 1, isLocked: false }]);
             const updateItem = (id, field, value) => setItems(items.map(i => i.id === id ? { ...i, [field]: value } : i));
             const removeItem = (id) => setItems(items.filter(i => i.id !== id));
-            
-            const resetForm = () => {
-                setItems([{ id: Date.now(), type: 'pack', packId: packSizes[0]?.id || '', qty: 0, multiplier: 1, isLocked: false }]);
-                setSaveName('');
-                showToast("Đã làm mới!");
-            };
+            const clearAll = () => setItems([{ id: Date.now(), type: 'pack', packId: packSizes[0]?.id, qty: 0, multiplier: 1, isLocked: false }]);
 
-            const total = useMemo(() => items.reduce((acc, item) => {
-                const mult = item.multiplier || 1;
-                const qty = parseInt(item.qty) || 0;
-                return acc + (item.type === 'pack' ? qty * mult * (packSizes.find(x => x.id === item.packId)?.size || 0) : qty * mult);
-            }, 0), [items, packSizes]);
+            const total = useMemo(() => items.reduce((sum, item) => sum + (item.type === 'pack' ? (Number(item.qty) * (Number(item.multiplier)||1) * (packSizes.find(x => x.id === item.packId)?.size || 0)) : (Number(item.qty) * (Number(item.multiplier)||1))), 0), [items, packSizes]);
+
+            const [showHistory, setShowHistory] = useState(false);
+            const [saveName, setSaveName] = useState('');
+            const [historyList, setHistoryList] = useState(() => { const saved = localStorage.getItem('tab1History'); return saved ? JSON.parse(saved) : []; });
+            useEffect(() => { localStorage.setItem('tab1History', JSON.stringify(historyList)); }, [historyList]);
 
             const handleSave = () => {
-                if (!saveName.trim()) { showToast("Nhập tên để lưu!"); return; }
-                
-                // Lọc bỏ các mục có số lượng = 0 trước khi lưu
-                const validItems = items.filter(item => (parseInt(item.qty)||0) > 0);
-                
-                const { formula } = generateFormulaString(validItems, packSizes);
+                if (!saveName.trim()) { showToast("Vui lòng nhập tên!"); return; }
+                const { formula } = generateFormulaString(items, packSizes);
                 const finalStr = formula ? `${formula} = ${total.toLocaleString()}` : '0';
-                
-                setHistoryList([{ id: Date.now(), name: saveName, date: new Date().toLocaleString('vi-VN'), data: validItems, total, formulaStr: finalStr }, ...historyList]);
-                setSaveName(''); showToast("Đã lưu (lọc số 0)!");
-            };
 
-            const exportCSV = () => {
-                let str = "Loại,Tên,Quy Cách,Hệ Số,Số Lượng,Tổng\n";
-                // Lọc số 0 khi xuất file
-                const validItems = items.filter(item => (parseInt(item.qty)||0) > 0);
-                
-                validItems.forEach(it => {
-                    const isPack = it.type === 'pack';
-                    const p = isPack ? packSizes.find(x => x.id === it.packId) : null;
-                    const size = p ? p.size : 1;
-                    const mult = it.multiplier || 1;
-                    const rowTotal = it.qty * mult * size;
-                    str += `${isPack ? 'Hộp' : 'Lẻ'},${p ? p.name : 'Lẻ'},${size},x${mult},${it.qty},${rowTotal}\n`;
-                });
-                str += `,,,,,TỔNG:,${total}`;
-                downloadCSV(str, `TinhTong_${Date.now()}.csv`);
-                showToast("Đã xuất Excel!");
+                setHistoryList([{ id: Date.now(), name: saveName, date: new Date().toLocaleString('vi-VN'), data: items, total, formulaStr: finalStr }, ...historyList]);
+                setSaveName(''); showToast("Đã lưu lịch sử!");
             };
+            const loadHistory = (entry) => { setItems(entry.data); setShowHistory(false); showToast(`Đã tải: ${entry.name}`); };
+            const deleteHistory = (id) => setHistoryList(historyList.filter(h => h.id !== id));
 
             return (
-                <div className="p-3 space-y-3 fade-in relative">
-                    {/* Hero Card Gọn Gàng */}
-                    <div className="bg-gray-900 rounded-[24px] p-5 shadow-lg relative overflow-hidden">
-                        <div className="absolute -top-6 -right-6 opacity-5"><Icon name="calculator" size={120} color="white"/></div>
-                        <p className="text-gray-400 text-[11px] font-bold uppercase tracking-wider mb-1 z-10 relative">Tổng Thành Phẩm</p>
-                        <h2 className="text-[40px] leading-none font-bold text-white tracking-tight z-10 relative mb-4">{total.toLocaleString()}</h2>
+                <div className="p-3 space-y-3 fade-in">
+                    <div className="bg-slate-900 rounded-[24px] p-4 shadow-lg flex flex-col gap-3 relative overflow-hidden">
+                        <div className="absolute -right-4 -top-4 opacity-5"><Icon name="calculator" size={120} /></div>
+                        <div className="flex justify-between items-center z-10">
+                            <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Tổng thành phẩm</p>
+                            <button onClick={clearAll} className="text-red-400 bg-red-400/10 p-1.5 rounded-lg active:bg-red-400/20"><Icon name="rotate-ccw" size={16}/></button>
+                        </div>
+                        <h2 className="text-[40px] leading-none font-black tracking-tight text-white z-10 truncate">{total.toLocaleString()}</h2>
                         
-                        {/* Toolbar Tinh Gọn */}
-                        <div className="flex gap-1.5 z-10 relative">
-                            <input 
-                                type="text" placeholder="Tên để lưu..." value={saveName} 
-                                onFocus={(e) => e.target.select()} onChange={(e) => setSaveName(e.target.value)} 
-                                className="flex-1 px-3 bg-white/10 rounded-lg text-white placeholder-gray-400 text-[13px] font-medium outline-none backdrop-blur-sm border border-white/10" 
-                            />
-                            <button onClick={handleSave} className="bg-blue-600 text-white w-9 h-9 flex justify-center items-center rounded-lg active:scale-95"><Icon name="save" size={16}/></button>
-                            <button onClick={exportCSV} className="bg-white/10 text-white w-9 h-9 flex justify-center items-center rounded-lg active:scale-95 border border-white/10"><Icon name="file-spreadsheet" size={16}/></button>
-                            <button onClick={() => setShowHistory(true)} className="bg-white/10 text-white w-9 h-9 flex justify-center items-center rounded-lg active:scale-95 border border-white/10"><Icon name="history" size={16}/></button>
-                            <button onClick={resetForm} className="bg-red-500/80 text-white w-9 h-9 flex justify-center items-center rounded-lg active:scale-95 border border-white/10"><Icon name="rotate-ccw" size={16}/></button>
+                        <div className="flex bg-slate-800/80 rounded-xl overflow-hidden border border-slate-700/50 mt-1 z-10">
+                            <input type="text" placeholder="Tên để lưu..." value={saveName} onChange={(e) => setSaveName(e.target.value)} className="flex-1 px-3 py-2 text-sm outline-none font-medium bg-transparent text-white placeholder-slate-500" />
+                            <button onClick={handleSave} className="bg-blue-500 text-white px-4 py-2 active:bg-blue-600 flex items-center justify-center"><Icon name="save" size={18}/></button>
+                            <button onClick={() => setShowHistory(true)} className="bg-slate-700 text-slate-300 px-4 py-2 border-l border-slate-600 active:bg-slate-600"><Icon name="history" size={18}/></button>
                         </div>
                     </div>
 
-                    {/* Segmented Buttons gọn gàng */}
                     <div className="flex gap-2">
-                        <button onClick={() => addItem('pack')} className="flex-1 py-2.5 bg-white border border-gray-200 text-blue-600 text-[12px] font-semibold rounded-[14px] flex justify-center items-center gap-1.5 active:bg-gray-50 shadow-sm"><Icon name="box" size={16}/> Thêm Hộp</button>
-                        <button onClick={() => addItem('single')} className="flex-1 py-2.5 bg-white border border-gray-200 text-orange-600 text-[12px] font-semibold rounded-[14px] flex justify-center items-center gap-1.5 active:bg-gray-50 shadow-sm"><Icon name="layers" size={16}/> Thêm Lẻ</button>
+                        <button onClick={() => addItem('pack')} className="flex-1 py-3 bg-white border border-blue-100 shadow-sm text-blue-700 text-[11px] font-bold uppercase tracking-wide rounded-2xl flex items-center justify-center gap-1.5 active:bg-blue-50"><Icon name="box" size={16}/> Thêm Hộp</button>
+                        <button onClick={() => addItem('single')} className="flex-1 py-3 bg-white border border-orange-100 shadow-sm text-orange-600 text-[11px] font-bold uppercase tracking-wide rounded-2xl flex items-center justify-center gap-1.5 active:bg-orange-50"><Icon name="layers" size={16}/> Thêm Lẻ</button>
                     </div>
 
-                    {/* List Items */}
                     <div className="space-y-2">
-                        {items.map(item => <RowItem key={item.id} item={item} packSizes={packSizes} updateItem={updateItem} removeItem={removeItem} />)}
+                        {items.map(item => (
+                            <RowItem key={item.id} item={item} packSizes={packSizes} updateItem={updateItem} removeItem={removeItem} />
+                        ))}
                     </div>
 
-                    {/* Modal Lịch Sử */}
+                    {/* Modal Lịch Sử (Tính Xuôi) */}
                     {showHistory && (
-                        <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm z-50 md:rounded-[32px] flex flex-col fade-in">
-                            <div className="bg-white rounded-t-[24px] mt-auto max-h-[80%] flex flex-col shadow-2xl">
-                                <div className="flex justify-between items-center p-4 border-b border-gray-100">
-                                    <h3 className="font-bold">Lịch sử Tính Xuôi</h3>
-                                    <button onClick={() => setShowHistory(false)} className="p-1 bg-gray-100 rounded-full"><Icon name="x" size={18}/></button>
-                                </div>
-                                <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                                    {historyList.map(entry => (
-                                        <div key={entry.id} className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100">
-                                            <div className="flex justify-between items-start mb-2">
-                                                <div><p className="font-bold text-[14px]">{entry.name}</p><p className="text-[10px] text-gray-500">{entry.date}</p></div>
-                                                <p className="font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded text-[13px]">{entry.total?.toLocaleString()}</p>
+                        <div className="absolute inset-0 bg-slate-900/80 z-50 md:rounded-[32px] overflow-hidden flex flex-col fade-in">
+                            <div className="flex justify-between items-center p-4 bg-white border-b border-slate-200 pt-[env(safe-area-inset-top,16px)]">
+                                <h3 className="font-bold text-slate-800 flex items-center gap-2"><Icon name="history" size={20}/> Lịch sử đã lưu</h3>
+                                <button onClick={() => setShowHistory(false)} className="p-1.5 bg-slate-100 rounded-full"><Icon name="x" size={20}/></button>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-4 bg-slate-50 space-y-3 pb-[env(safe-area-inset-bottom,20px)]">
+                                {historyList.length === 0 ? <p className="text-center text-slate-500 text-sm mt-10">Chưa có dữ liệu.</p> : historyList.map(entry => (
+                                    <div key={entry.id} className="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-2">
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <p className="font-bold text-slate-800 text-base">{entry.name}</p>
+                                                <p className="text-[11px] text-slate-400">{entry.date}</p>
                                             </div>
-                                            <div className="text-[11px] font-mono text-gray-500 break-all mb-3">{entry.formulaStr}</div>
-                                            <div className="flex gap-2">
-                                                <button onClick={() => { setItems(entry.data); setShowHistory(false); }} className="flex-1 bg-white border border-gray-200 py-1.5 rounded-lg text-[12px] font-semibold active:bg-gray-50">Tải lại</button>
-                                                <button onClick={() => setHistoryList(historyList.filter(h=>h.id !== entry.id))} className="px-3 bg-red-50 text-red-500 rounded-lg"><Icon name="trash-2" size={16}/></button>
-                                            </div>
+                                            <span className="text-sm font-black text-blue-700 bg-blue-50 px-2 py-1 rounded-lg">Tổng: {entry.total?.toLocaleString()}</span>
                                         </div>
-                                    ))}
-                                </div>
+                                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 text-[13px] font-mono text-slate-600 break-all">
+                                            {entry.formulaStr || 'Không có dữ liệu công thức'}
+                                        </div>
+                                        <div className="flex gap-2 mt-1">
+                                            <button onClick={() => loadHistory(entry)} className="flex-1 py-2 bg-blue-600 text-white text-[13px] font-bold rounded-xl active:bg-blue-700 transition-colors flex items-center justify-center gap-1"><Icon name="download" size={16}/> Tải lại</button>
+                                            <button onClick={() => deleteHistory(entry.id)} className="px-4 py-2 bg-red-50 text-red-600 rounded-xl active:bg-red-100"><Icon name="trash-2" size={18}/></button>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     )}
@@ -398,226 +281,343 @@
             );
         }
 
+        // --- TAB 2: CHIA NGƯỢC ---
         function Tab2Divider({ packSizes, showToast }) {
             const [targetTotal, setTargetTotal] = useState(() => {
-                const s = localStorage.getItem('t2Target');
-                return s ? parseInt(s) : 100;
+                const saved = localStorage.getItem('tab2Total'); return saved ? parseInt(saved) : 0;
             });
-            
             const [allocations, setAllocations] = useState(() => {
-                const saved = localStorage.getItem('t2Alloc');
-                return saved ? JSON.parse(saved) : [{ id: Date.now()+'a', type: 'pack', packId: packSizes[0]?.id || '', qty: 0, multiplier: 1, isLocked: false }];
+                const saved = localStorage.getItem('tab2Allocs');
+                return saved ? JSON.parse(saved) : [{ id: Date.now(), type: 'pack', packId: packSizes[0]?.id || '', qty: 0, multiplier: 1, isLocked: false }];
             });
             
-            // Drag & Drop State
-            const [draggedId, setDraggedId] = useState(null);
-            const [dragOverId, setDragOverId] = useState(null);
+            // CÁC STATE CÔNG CỤ NHẬP
+            const [showInputHelper, setShowInputHelper] = useState(false);
+            const [helperPacks, setHelperPacks] = useState([{ id: Date.now(), packId: packSizes[0]?.id, qty: 0 }]);
+            const [helperSingles, setHelperSingles] = useState(0);
 
-            const [saveName, setSaveName] = useState('');
+            // MODAL GỢI Ý & LỊCH SỬ
+            const [showSuggestModal, setShowSuggestModal] = useState(false);
+            const [manualPackSelect, setManualPackSelect] = useState(packSizes[0]?.id);
             const [showHistory, setShowHistory] = useState(false);
-            const [historyList, setHistoryList] = useState(() => { const s = localStorage.getItem('t2Hist'); return s ? JSON.parse(s) : []; });
-            
-            // Auto save
-            useEffect(() => { localStorage.setItem('t2Alloc', JSON.stringify(allocations)); }, [allocations]);
-            useEffect(() => { localStorage.setItem('t2Target', targetTotal.toString()); }, [targetTotal]);
-            useEffect(() => { localStorage.setItem('t2Hist', JSON.stringify(historyList)); }, [historyList]);
+            const [saveName, setSaveName] = useState('');
+            const [historyList, setHistoryList] = useState(() => {
+                const saved = localStorage.getItem('tab2History');
+                return saved ? JSON.parse(saved) : [];
+            });
 
-            const currentSum = allocations.reduce((sum, item) => {
-                const mult = item.multiplier || 1;
-                const qty = parseInt(item.qty) || 0;
-                return sum + (item.type === 'pack' ? qty * mult * (packSizes.find(p => p.id === item.packId)?.size || 0) : qty * mult);
-            }, 0);
+            useEffect(() => { localStorage.setItem('tab2Total', targetTotal); }, [targetTotal]);
+            useEffect(() => { localStorage.setItem('tab2Allocs', JSON.stringify(allocations)); }, [allocations]);
+            useEffect(() => { localStorage.setItem('tab2History', JSON.stringify(historyList)); }, [historyList]);
+
+            // Logic tính tổng từ Công cụ nhập
+            useEffect(() => {
+                if(!showInputHelper) return;
+                let sum = parseInt(helperSingles) || 0;
+                helperPacks.forEach(p => { sum += (parseInt(p.qty) || 0) * (packSizes.find(x => x.id === p.packId)?.size || 0); });
+                setTargetTotal(sum);
+            }, [helperPacks, helperSingles, packSizes, showInputHelper]);
+            
+            useEffect(() => {
+                if (!manualPackSelect && packSizes.length > 0) {
+                    setManualPackSelect(packSizes[0].id);
+                }
+            }, [packSizes, manualPackSelect]);
+
+            const currentSum = allocations.reduce((sum, a) => sum + (a.type === 'pack' ? Number(a.qty) * (Number(a.multiplier)||1) * (packSizes.find(p => p.id === a.packId)?.size || 1) : Number(a.qty) * (Number(a.multiplier)||1)), 0);
             const unallocated = targetTotal - currentSum;
 
             const updateAlloc = (id, field, value) => setAllocations(allocations.map(a => a.id === id ? { ...a, [field]: value } : a));
             const removeAlloc = (id) => setAllocations(allocations.filter(a => a.id !== id));
-            const addPack = () => setAllocations([...allocations, { id: Date.now() + Math.random(), type: 'pack', packId: packSizes[0]?.id, qty: 0, multiplier:1, isLocked: false }]);
-            const addSingle = () => setAllocations([...allocations, { id: Date.now() + Math.random(), type: 'single', qty: 0, multiplier:1, isLocked: false }]);
-
-            const resetForm = () => {
-                setAllocations([{ id: Date.now()+'a', type: 'pack', packId: packSizes[0]?.id || '', qty: 0, multiplier: 1, isLocked: false }]);
-                setTargetTotal(100);
-                setSaveName('');
-                showToast("Đã làm mới!");
+            
+            const addPack = () => setAllocations([...allocations, { id: Date.now() + Math.random(), type: 'pack', packId: packSizes[0]?.id, qty: 0, multiplier: 1, isLocked: false }]);
+            const addSingle = () => setAllocations([...allocations, { id: Date.now() + Math.random(), type: 'single', qty: 0, multiplier: 1, isLocked: false }]);
+            
+            const clearAll = () => {
+                setTargetTotal(0);
+                setAllocations([{ id: Date.now(), type: 'pack', packId: packSizes[0]?.id, qty: 0, multiplier: 1, isLocked: false }]);
+                showToast("Đã làm mới đơn hàng");
             };
 
-            // Xử lý Kéo thả Gộp
-            const onDragStart = (e, id) => { setDraggedId(id); e.dataTransfer.effectAllowed = "move"; };
-            const onDragOver = (e, targetItem) => {
-                e.preventDefault(); e.dataTransfer.dropEffect = "move";
-                if (targetItem.isLocked || targetItem.id === draggedId) { setDragOverId(null); return; }
-                const draggedItem = allocations.find(a => a.id === draggedId);
-                if (draggedItem && draggedItem.type === targetItem.type && draggedItem.packId === targetItem.packId) setDragOverId(targetItem.id);
-                else setDragOverId(null);
-            };
-            const onDrop = (e, targetId) => {
-                e.preventDefault(); setDragOverId(null);
-                if (!draggedId || draggedId === targetId) return;
-                const source = allocations.find(a => a.id === draggedId);
-                const target = allocations.find(a => a.id === targetId);
-                
-                if (source && target && !target.isLocked && source.type === target.type && source.packId === target.packId) {
-                    const sourceRealQty = (parseInt(source.qty)||0) * (source.multiplier||1);
-                    const targetRealQty = (parseInt(target.qty)||0) * (target.multiplier||1);
+            // THUẬT TOÁN ĐŨA THẦN (CHIA THEO Ý ĐỊNH NGƯỜI DÙNG)
+            const handleSmartFillClick = () => {
+                if (unallocated <= 0) return;
+
+                const emptyRows = allocations.filter(a => a.type === 'pack' && Number(a.qty) === 0 && !a.isLocked);
+
+                if (emptyRows.length > 0) {
+                    // Ưu tiên dòng = 0 do user chọn
+                    let currentRem = unallocated;
+                    let newAllocs = [...allocations];
                     
-                    let newArr = allocations.map(a => a.id === targetId ? { ...a, qty: targetRealQty + sourceRealQty, multiplier: 1 } : a);
-                    setAllocations(newArr.filter(a => a.id !== draggedId));
-                    showToast("Đã gộp thành công!");
+                    emptyRows.forEach(emptyRow => {
+                        if (currentRem <= 0) return;
+                        const idx = newAllocs.findIndex(a => a.id === emptyRow.id);
+                        const packInfo = packSizes.find(p => p.id === emptyRow.packId);
+                        if (packInfo && idx !== -1) {
+                            const mult = Number(emptyRow.multiplier) || 1;
+                            const capacity = packInfo.size * mult;
+                            const fitQty = Math.floor(currentRem / capacity);
+                            if (fitQty > 0) {
+                                newAllocs[idx] = { ...newAllocs[idx], qty: fitQty };
+                                currentRem -= (fitQty * capacity);
+                            }
+                        }
+                    });
+
+                    // Đổ phần dư còn lại vào Lẻ
+                    if (currentRem > 0) {
+                         const singleIdx = newAllocs.findIndex(a => a.type === 'single' && !a.isLocked && (Number(a.multiplier)||1) === 1);
+                         if (singleIdx !== -1) {
+                             newAllocs[singleIdx] = { ...newAllocs[singleIdx], qty: Number(newAllocs[singleIdx].qty) + currentRem };
+                         } else {
+                             newAllocs.push({ id: Date.now() + Math.random(), type: 'single', qty: currentRem, multiplier: 1, isLocked: false });
+                         }
+                    }
+                    setAllocations(newAllocs);
+                    showToast("Đã chia theo hộp bạn chọn!");
+                } else {
+                    // Nếu không có hộp 0, bật Popup Gợi ý
+                    setShowSuggestModal(true);
                 }
-                setDraggedId(null);
             };
 
-            const autoFill = () => {
-                if (unallocated <= 0 || packSizes.length === 0) return;
+            // Logic gợi ý cho Popup
+            const smartSugg = useMemo(() => {
+                if (unallocated <= 0 || packSizes.length === 0) return null;
+                let bestExact = null;
+                let minCount = Infinity;
+                const sorted = [...packSizes].sort((a,b) => b.size - a.size);
+                const dfs = (rem, idx, current, count) => {
+                    if (rem === 0) {
+                        if (count < minCount) { minCount = count; bestExact = [...current]; }
+                        return;
+                    }
+                    if (idx >= sorted.length || rem < 0) return;
+                    const pack = sorted[idx];
+                    const maxQ = Math.floor(rem / pack.size);
+                    for (let q = maxQ; q >= 0; q--) {
+                        if (q > 0) current.push({ packId: pack.id, qty: q, name: pack.name, size: pack.size });
+                        dfs(rem - q * pack.size, idx + 1, current, count + q);
+                        if (q > 0) current.pop();
+                    }
+                };
+                if (unallocated < 50000) dfs(unallocated, 0, [], 0);
+                if (bestExact) return { exact: true, items: bestExact, singles: 0 };
+                
                 const p0 = packSizes[0];
                 const q = Math.floor(unallocated / p0.size);
                 const s = unallocated % p0.size;
-                let newArr = [...allocations];
-                
-                // Tái sử dụng dòng Hộp đang = 0 (nếu có), ngược lại mới tạo dòng mới
-                if (q > 0) {
-                    const emptyPackIdx = newArr.findIndex(a => a.type === 'pack' && a.packId === p0.id && (parseInt(a.qty) || 0) === 0 && !a.isLocked);
-                    if (emptyPackIdx !== -1) {
-                        newArr[emptyPackIdx] = { ...newArr[emptyPackIdx], qty: q };
-                    } else {
-                        newArr.push({ id: Date.now() + Math.random(), type: 'pack', packId: p0.id, qty: q, multiplier: 1, isLocked: false });
-                    }
+                return { exact: false, items: q > 0 ? [{ packId: p0.id, qty: q, name: p0.name, size: p0.size }] : [], singles: s };
+            }, [unallocated, packSizes]);
+
+            const applySuggestion = () => {
+                if (!smartSugg) return;
+                let newAllocs = [...allocations];
+                smartSugg.items.forEach(it => {
+                    newAllocs.push({ id: Date.now() + Math.random(), type: 'pack', packId: it.packId, qty: it.qty, multiplier: 1, isLocked: false });
+                });
+                setAllocations(newAllocs);
+                setShowSuggestModal(false);
+            };
+
+            const applyManualPack = () => {
+                const pack = packSizes.find(p => p.id === manualPackSelect);
+                if(!pack) return;
+                const q = Math.floor(unallocated / pack.size);
+                if(q > 0) {
+                    setAllocations([...allocations, { id: Date.now() + Math.random(), type: 'pack', packId: pack.id, qty: q, multiplier: 1, isLocked: false }]);
+                } else {
+                    showToast("Số dư không đủ 1 hộp!");
                 }
-                
-                // Tái sử dụng dòng Lẻ đang = 0 (nếu có), ngược lại mới tạo dòng mới
-                if (s > 0) {
-                    const emptySingleIdx = newArr.findIndex(a => a.type === 'single' && (parseInt(a.qty) || 0) === 0 && !a.isLocked);
-                    if (emptySingleIdx !== -1) {
-                        newArr[emptySingleIdx] = { ...newArr[emptySingleIdx], qty: s };
-                    } else {
-                        newArr.push({ id: Date.now() + Math.random(), type: 'single', qty: s, multiplier: 1, isLocked: false });
-                    }
-                }
-                
-                setAllocations(newArr);
-                showToast("Đã xếp tự động!");
+                setShowSuggestModal(false);
             };
 
             const handleSave = () => {
                 if (!saveName.trim()) { showToast("Nhập tên để lưu!"); return; }
-                
-                // Lọc bỏ 0 trước khi lưu
-                const validAllocations = allocations.filter(a => (parseInt(a.qty)||0) > 0);
-                
-                const { formula } = generateFormulaString(validAllocations, packSizes);
+                const { formula } = generateFormulaString(allocations, packSizes);
                 let finalStr = formula ? `${formula} = ${currentSum.toLocaleString()}` : '0';
                 if(unallocated !== 0) finalStr += ` (Dư: ${unallocated})`;
 
-                setHistoryList([{ id: Date.now(), name: saveName, date: new Date().toLocaleString('vi-VN'), data: validAllocations, targetTotal, formulaStr: finalStr }, ...historyList]);
-                setSaveName(''); showToast("Đã lưu!");
+                setHistoryList([{ id: Date.now(), name: saveName, date: new Date().toLocaleString('vi-VN'), data: allocations, total: targetTotal, formulaStr: finalStr }, ...historyList]);
+                setSaveName(''); showToast("Đã lưu lịch sử!");
             };
 
-            const exportCSV = () => {
-                let str = `TỔNG CẦN CHIA:,${targetTotal}\nLoại,Tên,Quy Cách,Hệ Số,Số Lượng,Tổng\n`;
-                const validAllocations = allocations.filter(a => (parseInt(a.qty)||0) > 0);
-                
-                validAllocations.forEach(it => {
-                    const isPack = it.type === 'pack';
-                    const p = isPack ? packSizes.find(x => x.id === it.packId) : null;
-                    const size = p ? p.size : 1;
-                    const mult = it.multiplier || 1;
-                    const rowTotal = it.qty * mult * size;
-                    str += `${isPack ? 'Hộp' : 'Lẻ'},${p ? p.name : 'Lẻ'},${size},x${mult},${it.qty},${rowTotal}\n`;
-                });
-                str += `,,,,,ĐÃ CHIA:,${currentSum}\n,,,,,DƯ:,${unallocated}`;
-                downloadCSV(str, `ChiaHang_${Date.now()}.csv`);
-                showToast("Đã xuất Excel!");
-            };
+            const loadHistory = (entry) => { setAllocations(entry.data); setTargetTotal(entry.total); setShowHistory(false); showToast(`Đã tải: ${entry.name}`); };
+            const deleteHistory = (id) => setHistoryList(historyList.filter(h => h.id !== id));
+            
+            const maxPackSize = Math.max(...packSizes.map(p => p.size), 0);
 
             return (
                 <div className="p-3 space-y-3 fade-in relative">
-                    
-                    {/* Header Input Side-by-Side Tinh Gọn (Khắc phục lỗi phình to) */}
-                    <div className="bg-white rounded-[20px] p-3 shadow-sm border border-gray-200">
-                        <div className="flex items-center justify-between border-b border-gray-100 pb-2 mb-2">
-                            <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Tổng cần chia</span>
-                            {/* CHUẨN NUMPAD IOS */}
+                    <div className="bg-white rounded-[24px] shadow-sm border border-slate-200 overflow-hidden">
+                        <div className="p-4 flex items-center justify-between gap-3 border-b border-slate-100">
+                            <div className="flex flex-col gap-1 shrink-0">
+                                <span className="text-[11px] font-black text-slate-400 uppercase tracking-wider">Tổng cần chia</span>
+                                <button onClick={() => setShowInputHelper(!showInputHelper)} className="text-[10px] text-blue-500 font-semibold flex items-center gap-0.5 text-left">
+                                    <Icon name={showInputHelper ? "chevron-up" : "chevron-down"} size={12}/> 
+                                    {showInputHelper ? "Ẩn công cụ" : "Dùng công cụ nhập"}
+                                </button>
+                            </div>
                             <input 
                                 type="text" inputMode="numeric" pattern="[0-9]*" 
-                                value={targetTotal===0?'':targetTotal} 
+                                value={targetTotal === 0 ? '' : targetTotal} 
+                                onChange={(e) => { setTargetTotal(parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0); setShowInputHelper(false); }} 
                                 onFocus={(e) => e.target.select()}
-                                onChange={(e) => setTargetTotal(parseInt(e.target.value.replace(/[^0-9]/g, ''))||0)} 
-                                className="w-32 text-right text-[32px] leading-none font-bold text-blue-600 outline-none bg-transparent placeholder-gray-200" 
-                                placeholder="0" 
+                                placeholder="0"
+                                className="w-full text-right text-4xl font-black text-blue-600 outline-none bg-transparent"
                             />
                         </div>
-                        {/* Toolbar nhỏ gọn nằm trong thẻ */}
-                        <div className="flex gap-1.5 h-9">
-                            <input 
-                                type="text" placeholder="Tên để lưu..." value={saveName} 
-                                onFocus={(e) => e.target.select()} onChange={(e) => setSaveName(e.target.value)} 
-                                className="flex-1 px-3 bg-gray-50 border border-gray-200 rounded-lg text-[13px] font-medium outline-none" 
-                            />
-                            <button onClick={handleSave} className="bg-blue-50 text-blue-600 w-10 flex justify-center items-center rounded-lg active:scale-95 border border-blue-100"><Icon name="save" size={16}/></button>
-                            <button onClick={exportCSV} className="bg-gray-50 text-gray-600 w-10 flex justify-center items-center rounded-lg active:scale-95 border border-gray-200"><Icon name="file-spreadsheet" size={16}/></button>
-                            <button onClick={() => setShowHistory(true)} className="bg-gray-50 text-gray-600 w-10 flex justify-center items-center rounded-lg active:scale-95 border border-gray-200"><Icon name="history" size={16}/></button>
-                            <button onClick={resetForm} className="bg-red-50 text-red-500 w-10 flex justify-center items-center rounded-lg active:scale-95 border border-red-100"><Icon name="rotate-ccw" size={16}/></button>
-                        </div>
-                    </div>
-
-                    {/* Status Alert Tinh Gọn */}
-                    <div className={`p-3 rounded-[16px] flex items-center justify-between shadow-sm border transition-colors ${unallocated === 0 ? 'bg-emerald-50 border-emerald-200' : unallocated > 0 ? 'bg-orange-50 border-orange-300' : 'bg-red-50 border-red-200'}`}>
-                        <div>
-                            <p className={`text-[12px] font-bold uppercase tracking-wide ${unallocated === 0 ? 'text-emerald-700' : unallocated > 0 ? 'text-orange-700' : 'text-red-700'}`}>
-                                {unallocated === 0 ? 'Đã phân bổ đủ' : unallocated > 0 ? 'Dư (Chưa xếp)' : 'Thiếu (Âm)'}
-                            </p>
-                            {unallocated > 0 && <p className="text-[10px] text-orange-600 mt-0.5 font-medium">Bấm Đũa thần để tự động xếp</p>}
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <span className={`text-[24px] font-bold leading-none ${unallocated === 0 ? 'text-emerald-600' : unallocated > 0 ? 'text-orange-600' : 'text-red-600'}`}>{Math.abs(unallocated)}</span>
-                            {unallocated > 0 && <button onClick={autoFill} className="w-9 h-9 flex items-center justify-center bg-orange-500 text-white rounded-full shadow-md active:scale-95"><Icon name="wand-2" size={16}/></button>}
-                        </div>
-                    </div>
-
-                    {/* Add Buttons */}
-                    <div className="flex gap-2">
-                        <button onClick={addPack} className="flex-1 py-2.5 bg-white border border-gray-200 text-blue-600 text-[12px] font-semibold rounded-[14px] flex justify-center items-center gap-1.5 active:bg-gray-50 shadow-sm"><Icon name="box" size={16}/> Thêm Hộp</button>
-                        <button onClick={addSingle} className="flex-1 py-2.5 bg-white border border-gray-200 text-orange-600 text-[12px] font-semibold rounded-[14px] flex justify-center items-center gap-1.5 active:bg-gray-50 shadow-sm"><Icon name="layers" size={16}/> Thêm Lẻ</button>
-                    </div>
-                    
-                    <p className="text-[10px] text-center text-gray-400 font-medium">💡 Chạm giữ nhãn <b className="bg-gray-200 px-1 rounded text-gray-600">x1</b> và kéo đè lên dòng khác để Gộp</p>
-
-                    {/* List Items - Có hỗ trợ Drop */}
-                    <div className="space-y-2">
-                        {allocations.map(alloc => (
-                            <div key={alloc.id} className={dragOverId === alloc.id ? 'drag-over rounded-[16px]' : ''}>
-                                <RowItem 
-                                    item={alloc} packSizes={packSizes} 
-                                    updateItem={updateAlloc} removeItem={removeAlloc} 
-                                    onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop}
-                                />
+                        
+                        {/* GIAO DIỆN CÔNG CỤ NHẬP */}
+                        {showInputHelper && (
+                            <div className="bg-blue-50/50 p-3 border-b border-slate-100 space-y-2 fade-in">
+                                <p className="text-[10px] text-blue-800 font-bold uppercase tracking-wider mb-1">Tính ra tổng từ hàng sẵn có:</p>
+                                {helperPacks.map(hp => (
+                                    <div key={hp.id} className="flex gap-2">
+                                        <select value={hp.packId} onChange={(e) => setHelperPacks(helperPacks.map(p => p.id === hp.id ? {...p, packId: e.target.value} : p))} className="flex-1 bg-white border border-blue-200 rounded-lg text-[13px] font-bold text-slate-700 p-2 outline-none">
+                                            {packSizes.map(p => <option key={p.id} value={p.id}>{p.name} ({p.size})</option>)}
+                                        </select>
+                                        <input 
+                                            type="text" inputMode="numeric" pattern="[0-9]*" placeholder="SL" 
+                                            value={hp.qty===0?'':hp.qty} 
+                                            onChange={(e)=>setHelperPacks(helperPacks.map(p => p.id === hp.id ? {...p, qty: parseInt(e.target.value.replace(/[^0-9]/g, ''))||0} : p))} 
+                                            onFocus={(e) => e.target.select()}
+                                            className="w-16 bg-white border border-blue-200 rounded-lg text-center font-bold text-sm text-slate-800 outline-none" 
+                                        />
+                                    </div>
+                                ))}
+                                <div className="flex gap-2 mt-2 items-center">
+                                    <button onClick={() => setHelperPacks([...helperPacks, { id: Date.now(), packId: packSizes[0]?.id, qty: 0 }])} className="text-[10px] text-blue-600 bg-blue-100 py-1.5 px-2 rounded-lg font-bold flex items-center gap-1 active:scale-95"><Icon name="plus" size={12}/> Hộp</button>
+                                    <div className="flex-1 flex items-center gap-2 border-l border-blue-200 pl-3">
+                                        <span className="text-[10px] text-orange-600 font-bold uppercase">Lẻ:</span>
+                                        <input 
+                                            type="text" inputMode="numeric" pattern="[0-9]*" 
+                                            value={helperSingles===0?'':helperSingles} 
+                                            onChange={(e)=>setHelperSingles(parseInt(e.target.value.replace(/[^0-9]/g, ''))||0)} 
+                                            onFocus={(e) => e.target.select()}
+                                            className="flex-1 bg-white border border-orange-200 rounded-lg text-center font-bold text-sm p-1.5 outline-none text-orange-600" 
+                                        />
+                                    </div>
+                                </div>
                             </div>
+                        )}
+
+                        <div className="flex bg-slate-50">
+                            <input type="text" placeholder="Tên để lưu..." value={saveName} onChange={(e) => setSaveName(e.target.value)} className="flex-1 px-4 py-3 text-[13px] outline-none font-semibold bg-transparent text-slate-700" />
+                            <button onClick={handleSave} className="px-4 py-3 text-blue-600 bg-blue-50/50 border-l border-slate-200 active:bg-blue-100"><Icon name="save" size={18}/></button>
+                            <button className="px-4 py-3 text-slate-500 border-l border-slate-200 active:bg-slate-200"><Icon name="file-spreadsheet" size={18}/></button>
+                            <button onClick={() => setShowHistory(true)} className="px-4 py-3 text-slate-500 border-l border-slate-200 active:bg-slate-200"><Icon name="history" size={18}/></button>
+                            <button onClick={clearAll} className="px-4 py-3 text-red-500 bg-red-50 border-l border-slate-200 active:bg-red-100"><Icon name="rotate-ccw" size={18}/></button>
+                        </div>
+                    </div>
+
+                    <div 
+                        onClick={() => { if (unallocated > 0) handleSmartFillClick(); }}
+                        className={`p-3.5 rounded-[20px] flex items-center justify-between shadow-sm border transition-all ${unallocated === 0 ? 'bg-emerald-50 border-emerald-200' : unallocated > 0 ? 'bg-amber-50 border-amber-300 cursor-pointer active:scale-[0.98]' : 'bg-rose-50 border-rose-200'}`}
+                    >
+                        <div className="flex flex-col">
+                            <span className={`text-[11px] font-black uppercase tracking-wider ${unallocated === 0 ? 'text-emerald-600' : unallocated > 0 ? 'text-amber-700' : 'text-rose-700'}`}>
+                                {unallocated === 0 ? 'Đã phân bổ đủ' : unallocated > 0 ? 'Dư (Bấm để xếp nốt)' : 'Thiếu hàng (Âm)'}
+                            </span>
+                        </div>
+                        <div className={`text-[28px] font-black leading-none ${unallocated === 0 ? 'text-emerald-600' : unallocated > 0 ? 'text-amber-600' : 'text-rose-600'}`}>
+                            {Math.abs(unallocated)}
+                        </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                        <button onClick={addPack} className="flex-1 py-2.5 bg-white border border-blue-100 shadow-sm text-blue-700 text-[11px] font-bold uppercase tracking-wide rounded-xl flex items-center justify-center gap-1.5 active:bg-blue-50"><Icon name="box" size={16}/> Thêm Hộp</button>
+                        <button onClick={addSingle} className={`flex-1 py-2.5 bg-white border border-orange-100 shadow-sm text-orange-600 text-[11px] font-bold uppercase tracking-wide rounded-xl flex items-center justify-center gap-1.5 active:bg-orange-50`}><Icon name="layers" size={16}/> Thêm Lẻ</button>
+                    </div>
+
+                    <div className="space-y-2">
+                        {allocations.map((alloc) => (
+                            <RowItem key={alloc.id} item={alloc} packSizes={packSizes} updateItem={updateAlloc} removeItem={removeAlloc} maxPackSize={maxPackSize} />
                         ))}
                     </div>
 
-                    {/* Modal Lịch Sử */}
-                    {showHistory && (
-                        <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm z-50 md:rounded-[32px] flex flex-col fade-in">
-                            <div className="bg-white rounded-t-[24px] mt-auto max-h-[80%] flex flex-col shadow-2xl">
-                                <div className="flex justify-between items-center p-4 border-b border-gray-100">
-                                    <h3 className="font-bold">Lịch sử Chia Ngược</h3>
-                                    <button onClick={() => setShowHistory(false)} className="p-1 bg-gray-100 rounded-full"><Icon name="x" size={18}/></button>
+                    {/* MODAL CHỌN THỦ CÔNG */}
+                    {showSuggestModal && (
+                        <div className="absolute inset-0 bg-slate-900/60 z-50 md:rounded-[32px] flex flex-col justify-end fade-in pb-20">
+                            <div className="bg-white rounded-t-[32px] p-5 space-y-5 slide-up border-t-[6px] border-amber-500 shadow-2xl relative">
+                                <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-slate-200 rounded-full"></div>
+                                <div className="flex justify-between items-center mt-2">
+                                    <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2"><Icon name="wand-2" size={24} color="#ea580c"/> Gợi ý tự động</h3>
+                                    <button onClick={() => setShowSuggestModal(false)} className="p-1.5 bg-slate-100 rounded-full active:scale-90"><Icon name="x" size={20}/></button>
                                 </div>
-                                <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                                    {historyList.map(entry => (
-                                        <div key={entry.id} className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100">
-                                            <div className="flex justify-between items-start mb-2">
-                                                <div><p className="font-bold text-[14px]">{entry.name}</p><p className="text-[10px] text-gray-500">{entry.date}</p></div>
-                                                <p className="font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded text-[13px]">{entry.targetTotal}</p>
+                                
+                                <div className="bg-amber-50 p-3 rounded-2xl border border-amber-200 flex items-center justify-between">
+                                    <span className="text-amber-800 font-medium text-sm">Cần xếp:</span>
+                                    <span className="text-2xl font-black text-amber-600">{unallocated}</span>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Phương án tốt nhất</p>
+                                    {smartSugg ? (
+                                        <div className={`p-4 rounded-2xl border ${smartSugg.exact ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <Icon name={smartSugg.exact ? "check-circle-2" : "zap"} size={20} color={smartSugg.exact ? "#10b981" : "#d97706"} />
+                                                <span className={`text-sm font-bold ${smartSugg.exact ? "text-emerald-700" : "text-amber-700"}`}>
+                                                    {smartSugg.exact ? "Chia chẵn 100%!" : "Không chẵn, lấy thùng lớn nhất"}
+                                                </span>
                                             </div>
-                                            <div className="text-[11px] font-mono text-gray-500 break-all mb-3">{entry.formulaStr}</div>
-                                            <div className="flex gap-2">
-                                                <button onClick={() => { setAllocations(entry.data); setTargetTotal(entry.targetTotal); setShowHistory(false); }} className="flex-1 bg-white border border-gray-200 py-1.5 rounded-lg text-[12px] font-semibold active:bg-gray-50">Tải lại</button>
-                                                <button onClick={() => setHistoryList(historyList.filter(h=>h.id !== entry.id))} className="px-3 bg-red-50 text-red-500 rounded-lg"><Icon name="trash-2" size={16}/></button>
+                                            <div className="space-y-1.5 pl-7">
+                                                {smartSugg.items.map((it, i) => (
+                                                    <div key={i} className="text-sm font-bold text-slate-800">+ {it.qty} {it.name} <span className="text-slate-400 font-medium">({it.qty * it.size})</span></div>
+                                                ))}
+                                                {smartSugg.singles > 0 && <div className="text-sm font-bold text-orange-600">(Phần dư {smartSugg.singles} sẽ đưa vào Lẻ)</div>}
                                             </div>
+                                            <button onClick={applySuggestion} className={`w-full mt-4 py-3 text-white font-bold rounded-xl active:scale-[0.98] transition-transform flex justify-center items-center gap-2 shadow-sm ${smartSugg.exact ? 'bg-emerald-600' : 'bg-amber-600'}`}>
+                                                Thêm vào bảng
+                                            </button>
                                         </div>
-                                    ))}
+                                    ) : (
+                                        <p className="text-sm text-slate-500">Không có cấu hình hộp.</p>
+                                    )}
                                 </div>
+
+                                <div className="pt-4 border-t border-slate-100 space-y-2">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Hoặc tự chỉ định 1 loại hộp</p>
+                                    <div className="flex gap-2">
+                                        <select value={manualPackSelect} onChange={(e) => setManualPackSelect(e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 outline-none font-bold text-sm text-blue-700">
+                                            {packSizes.map(p => <option key={p.id} value={p.id}>{p.name} ({p.size})</option>)}
+                                        </select>
+                                        <button onClick={applyManualPack} className="px-5 py-3 bg-blue-600 text-white font-bold rounded-xl active:bg-blue-700 whitespace-nowrap shadow-sm">
+                                            Thêm Ngay
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* MODAL LỊCH SỬ (Chia Ngược) */}
+                    {showHistory && (
+                        <div className="absolute inset-0 bg-slate-900/80 z-50 md:rounded-[32px] overflow-hidden flex flex-col fade-in">
+                            <div className="flex justify-between items-center p-4 bg-white border-b border-slate-200 pt-[env(safe-area-inset-top,16px)]">
+                                <h3 className="font-bold text-slate-800 flex items-center gap-2"><Icon name="history" size={20}/> Lịch sử chia</h3>
+                                <button onClick={() => setShowHistory(false)} className="p-1.5 bg-slate-100 rounded-full"><Icon name="x" size={20}/></button>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-4 bg-slate-50 space-y-3 pb-[env(safe-area-inset-bottom,20px)]">
+                                {historyList.length === 0 ? <p className="text-center text-slate-500 text-sm mt-10">Chưa có dữ liệu.</p> : historyList.map(entry => (
+                                    <div key={entry.id} className="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-2">
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <p className="font-bold text-slate-800 text-base">{entry.name}</p>
+                                                <p className="text-[11px] text-slate-400">{entry.date}</p>
+                                            </div>
+                                            <span className="text-sm font-black text-orange-600 bg-orange-50 px-2 py-1 rounded-lg">Cần chia: {entry.total?.toLocaleString()}</span>
+                                        </div>
+                                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 text-[13px] font-mono text-slate-600 break-all">
+                                            {entry.formulaStr || 'Không có dữ liệu'}
+                                        </div>
+                                        <div className="flex gap-2 mt-1">
+                                            <button onClick={() => loadHistory(entry)} className="flex-1 py-2 bg-blue-600 text-white text-[13px] font-bold rounded-xl active:bg-blue-700 flex items-center justify-center gap-1"><Icon name="download" size={16}/> Tải lại</button>
+                                            <button onClick={() => deleteHistory(entry.id)} className="px-4 py-2 bg-red-50 text-red-600 rounded-xl active:bg-red-100"><Icon name="trash-2" size={18}/></button>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     )}
@@ -625,69 +625,111 @@
             );
         }
 
-        function Tab3Settings({ packSizes, setPackSizes, showToast, hasUpdate, setHasUpdate }) {
-            const [newName, setNewName] = useState('');
-            const [newSize, setNewSize] = useState('');
-
-            const handleAdd = () => {
-                if(newName && newSize) {
-                    setPackSizes([...packSizes, { id: 'p'+Date.now(), name: newName, size: parseInt(newSize.replace(/[^0-9]/g, '')) }]);
-                    setNewName(''); setNewSize('');
-                    showToast("Đã thêm hộp mới");
-                }
-            };
-            const remove = (id) => { if(packSizes.length>1) setPackSizes(packSizes.filter(p=>p.id!==id)); };
+        // --- ROW ITEM ---
+        function RowItem({ item, packSizes, updateItem, removeItem, maxPackSize }) {
+            const isPack = item.type === 'pack';
+            const mult = Number(item.multiplier) || 1;
+            const qtyNum = Number(item.qty) || 0;
+            const itemTotal = isPack ? (qtyNum * mult * (packSizes.find(p => p.id === item.packId)?.size || 0)) : (qtyNum * mult);
+            const isOverload = !isPack && maxPackSize && qtyNum >= maxPackSize;
+            const isWaiting = qtyNum === 0;
 
             return (
-                <div className="p-3 space-y-4 fade-in">
+                <div className={`flex items-center gap-2 p-2 rounded-2xl border transition-colors ${item.isLocked ? 'bg-slate-100 border-slate-200 opacity-60' : (isWaiting ? 'bg-amber-50/40 border-amber-200' : 'bg-white border-slate-200')} shadow-sm`}>
                     
+                    <RowMultiplier multiplier={mult} setMultiplier={(v) => updateItem(item.id, 'multiplier', v)} />
+                    
+                    <div className="flex-1 min-w-0">
+                        {isPack ? (
+                            <select disabled={item.isLocked} value={item.packId} onChange={(e) => updateItem(item.id, 'packId', e.target.value)} className={`w-full bg-transparent text-[14px] font-bold ${item.isLocked ? 'text-slate-500' : 'text-slate-800'} outline-none truncate appearance-none`}>
+                                {packSizes.map(p => <option key={p.id} value={p.id}>{p.name} ({p.size})</option>)}
+                            </select>
+                        ) : (
+                            <span className={`w-full text-[14px] font-bold truncate flex items-center gap-1 ${item.isLocked ? 'text-slate-500' : (isOverload ? 'text-rose-600' : 'text-orange-600')}`}>
+                                Hàng Lẻ {isOverload && <Icon name="alert-triangle" size={14}/>}
+                            </span>
+                        )}
+                    </div>
+                    
+                    <div className={`flex items-center rounded-xl overflow-hidden border ${item.isLocked ? 'border-transparent' : (isOverload ? 'border-rose-300 bg-white' : 'border-slate-300 bg-white')} shrink-0 h-10`}>
+                        <button disabled={item.isLocked} onClick={() => updateItem(item.id, 'qty', Math.max(0, qtyNum - 1))} className="w-10 h-full flex items-center justify-center text-slate-500 bg-slate-50 active:bg-slate-200 border-r border-slate-200 font-bold text-lg">-</button>
+                        <input 
+                            disabled={item.isLocked} 
+                            type="text" inputMode="numeric" pattern="[0-9]*" 
+                            value={item.qty===0?'':item.qty} 
+                            onChange={(e) => updateItem(item.id, 'qty', parseInt(e.target.value.replace(/[^0-9]/g, ''))||0)}
+                            onFocus={(e) => e.target.select()}
+                            placeholder="0"
+                            className={`w-14 h-full text-center text-[15px] font-black bg-transparent outline-none p-0 ${isPack ? 'text-slate-800' : (isOverload ? 'text-rose-600' : 'text-orange-600')}`} 
+                        />
+                        <button disabled={item.isLocked} onClick={() => updateItem(item.id, 'qty', qtyNum + 1)} className="w-10 h-full flex items-center justify-center text-slate-500 bg-slate-50 active:bg-slate-200 border-l border-slate-200 font-bold text-lg">+</button>
+                    </div>
+
+                    <div className="w-14 flex flex-col items-end justify-center shrink-0">
+                        <span className={`text-[13px] font-black truncate ${isPack ? 'text-blue-600' : (isOverload ? 'text-rose-600' : 'text-orange-600')}`}>{itemTotal}</span>
+                        <div className="flex gap-1 mt-0.5">
+                            <button onClick={() => updateItem(item.id, 'isLocked', !item.isLocked)} className="text-slate-300 active:scale-90"><Icon name={item.isLocked ? 'lock' : 'unlock'} size={14} color={item.isLocked ? '#94a3b8' : 'currentColor'} /></button>
+                            <button onClick={() => removeItem(item.id)} className="text-slate-300 hover:text-rose-400 active:scale-90"><Icon name="trash-2" size={14}/></button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // --- TAB 3: SETTINGS ---
+        function Tab3Settings({ packSizes, setPackSizes, hasUpdate, setHasUpdate }) {
+            const [newName, setNewName] = useState('');
+            const [newSize, setNewSize] = useState('');
+            const [updateMsg, setUpdateMsg] = useState('');
+            
+            const handleAdd = () => {
+                if (newName && newSize) {
+                    setPackSizes([...packSizes, { id: 'p' + Date.now(), name: newName, size: parseInt(newSize.replace(/[^0-9]/g, '')) }]);
+                    setNewName(''); setNewSize('');
+                }
+            };
+
+            const removePack = (id) => { if (packSizes.length > 1) setPackSizes(packSizes.filter(p => p.id !== id)); };
+            const handleUpdate = () => {
+                setUpdateMsg("Đang đồng bộ...");
+                setTimeout(() => { setHasUpdate(false); setUpdateMsg("Đã khôi phục các tính năng (Công cụ nhập/Gợi ý)"); }, 1500);
+            };
+
+            return (
+                <div className="p-4 space-y-4 fade-in">
+                    {/* BẢNG CẬP NHẬT ĐÃ ĐƯỢC KHÔI PHỤC TẠI ĐÂY */}
                     {hasUpdate ? (
-                        <div className="bg-gray-900 p-4 rounded-[20px] shadow-lg text-white flex flex-col gap-2 relative overflow-hidden">
-                            <div className="absolute -right-4 -top-4 opacity-10"><Icon name="rocket" size={80}/></div>
+                        <div className="bg-gradient-to-r from-teal-500 to-emerald-600 p-5 rounded-3xl shadow-md text-white flex flex-col gap-3 relative overflow-hidden">
+                            <div className="absolute -right-4 -top-4 opacity-20"><Icon name="rocket" size={100}/></div>
                             <div className="z-10">
-                                <h3 className="font-bold text-base text-emerald-400">Bản cập nhật Siêu Phàm V6!</h3>
-                                <p className="text-gray-300 text-[12px] mt-1">Lưu trữ thông minh (không sợ mất data khi thoát). Lọc sạch rác (xóa các hộp = 0). Nút Làm mới thần tốc.</p>
+                                <h3 className="font-bold text-lg">Bản cập nhật tính năng PRO!</h3>
+                                <p className="text-teal-50 text-sm mt-1">Đã khôi phục lại <b>Công cụ nhập Tính ra tổng</b>, <b>Bảng gợi ý hộp</b> và <b>Không gộp hộp tự động</b>.</p>
                             </div>
-                            <button onClick={() => { setHasUpdate(false); showToast("Đã nâng cấp!"); }} className="z-10 mt-1 bg-emerald-500 text-white py-2 px-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 active:scale-95 shadow-md">
-                                <Icon name="download" size={16} /> Áp dụng tính năng mới
-                            </button>
+                            {updateMsg ? (
+                                <div className="z-10 mt-2 bg-white/20 text-white p-3 rounded-xl text-sm font-medium animate-pulse flex items-center gap-2"><Icon name="download" size={16} /> {updateMsg}</div>
+                            ) : (
+                                <button onClick={handleUpdate} className="z-10 mt-2 bg-white text-emerald-700 py-3 px-4 rounded-xl font-bold flex items-center justify-center gap-2 shadow-sm active:scale-95"><Icon name="download" size={18} /> Cập nhật ngay</button>
+                            )}
                         </div>
-                    ) : (
-                        <div className="bg-emerald-50 text-emerald-700 p-3 rounded-2xl flex items-center gap-2 font-semibold border border-emerald-100 text-[12px]">
-                            <Icon name="check-circle-2" size={18} /> Ứng dụng đã ở phiên bản xịn nhất.
-                        </div>
+                    ) : updateMsg && (
+                        <div className="bg-green-100 text-green-700 p-4 rounded-2xl flex items-center gap-3 font-medium"><Icon name="check-circle-2" size={24} /> {updateMsg}</div>
                     )}
 
-                    <div className="bg-white rounded-[20px] p-4 shadow-sm border border-gray-200">
-                        <h3 className="font-bold text-gray-800 mb-3 text-[14px]">Quy Cách Đóng Gói</h3>
-                        
-                        <div className="space-y-2">
+                    <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-5">
+                        <h3 className="font-bold text-slate-800 mb-4 text-sm uppercase tracking-wide">Cấu hình Hộp / Thùng</h3>
+                        <div className="space-y-3">
                             {packSizes.map(pack => (
-                                <div key={pack.id} className="flex justify-between items-center bg-gray-50 p-2.5 rounded-xl border border-gray-100">
-                                    <div>
-                                        <p className="font-semibold text-[13px] text-gray-900">{pack.name}</p>
-                                        <span className="text-[10px] font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-md mt-0.5 inline-block">1 hộp = {pack.size} cái</span>
-                                    </div>
-                                    <button onClick={() => remove(pack.id)} disabled={packSizes.length<=1} className="p-2 bg-white rounded-lg shadow-sm border border-gray-200 text-gray-400 hover:text-red-500 disabled:opacity-50"><Icon name="trash-2" size={14}/></button>
+                                <div key={pack.id} className="flex justify-between items-center bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                                    <div><p className="font-bold text-slate-800 text-[15px]">{pack.name}</p><p className="text-[12px] text-blue-600 font-bold mt-0.5">1 hộp = {pack.size}</p></div>
+                                    <button onClick={() => removePack(pack.id)} className="text-slate-400 p-2.5 bg-white rounded-xl shadow-sm border border-slate-100 active:scale-90" disabled={packSizes.length <= 1}><Icon name="trash-2" size={16} /></button>
                                 </div>
                             ))}
                         </div>
-                        
-                        <div className="mt-4 pt-4 border-t border-gray-100">
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Thêm cấu hình mới</p>
-                            <div className="flex gap-2">
-                                <input 
-                                    type="text" placeholder="Tên hộp..." value={newName} 
-                                    onFocus={(e) => e.target.select()} onChange={e=>setNewName(e.target.value)} 
-                                    className="flex-1 bg-gray-50 rounded-xl px-3 outline-none text-[13px] font-medium border border-gray-200 h-10" 
-                                />
-                                <input 
-                                    type="text" inputMode="numeric" pattern="[0-9]*" placeholder="Số" 
-                                    value={newSize} 
-                                    onFocus={(e) => e.target.select()} onChange={e=>setNewSize(e.target.value.replace(/[^0-9]/g,''))} 
-                                    className="w-[60px] bg-gray-50 rounded-xl text-center outline-none text-[13px] font-bold border border-gray-200 h-10" 
-                                />
-                                <button onClick={handleAdd} className="bg-gray-900 text-white w-10 rounded-xl flex items-center justify-center active:scale-95"><Icon name="plus" size={18}/></button>
+                        <div className="mt-5 pt-5 border-t border-slate-100">
+                            <div className="flex gap-2 h-12">
+                                <input type="text" placeholder="Tên Ký hiệu" value={newName} onChange={e => setNewName(e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 text-sm outline-none font-semibold" />
+                                <input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="S.Lượng" value={newSize} onChange={e => setNewSize(e.target.value.replace(/[^0-9]/g, ''))} className="w-20 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none text-center font-bold" />
+                                <button onClick={handleAdd} className="bg-slate-800 text-white px-4 rounded-xl active:scale-95"><Icon name="plus" size={20}/></button>
                             </div>
                         </div>
                     </div>
